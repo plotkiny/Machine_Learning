@@ -25,19 +25,48 @@ with open("/home/paperspace/Documents/data/signalmedia-1m.jsonl") as file:
         j = json.loads(line)
         li.append(j)
 
-def text_cleaner(text, number_of_sentences = 5, remove_stop_words=True, expand_words=True):
+def sentence_sampling(text, count):
     
-    #keep the first few => returns a list of sentences
+    #taking the first 3 sentences and then randomly sampling the rest of the paragraph for sentences to use
+    #the numner of randomly picked samples is count
+    sampled_text = text 
+    
+    list_of_index = [i for i,j in enumerate(text) if i not in [0,1,2]]
+    rndm_index = random.sample(list_of_index, count)
+    sampled_text = text[:3]  #take the first three sentences 
+    for i in rndm_index:
+        sampled_text.append(text[i])   
+    
+    return sampled_text
+
+
+def text_cleaner(text, number_to_collect = 5, sample_sentence = True, remove_stop_words=True, expand_words=True):
+    
     text = sent_tokenize(text)
-    if len(text) > 5:
-        text = text[:number_of_sentences]
+    max_length = len(text)
+    count = number_to_collect - 3
+    
+    #take the first three sentences of the paragraph
+    #do we want to randomly sample sentences from the paragraph
+    #need to make sure the maximum # of sentences is not smaller then number_to_collect
+    if not sample_sentence:
+        index = number_to_collect if number_to_collect < max_length else max_length
+        text = text[:index]
+
+    else:
+        if max_length > number_to_collect: # m=11, c=10
+            text = sentence_sampling(text,count) #randomly sample sentences from the paragraph
+        else:
+            text = text[:max_length]
         
     #add end of sentence tag "<EOS>"
     text  = ['{} {}'.format(sentence,codes[2]) for sentence in text]
-        
+
+    
     #lower case => returns a single list of words (i.e. ['today was a good day the dog ate my homework'])
     text = [x.lower() for x in text]
     text = ' '.join(text)
+    
     
     #replace contraction words with the longer form
     if expand_words:
@@ -45,13 +74,16 @@ def text_cleaner(text, number_of_sentences = 5, remove_stop_words=True, expand_w
         for word in text.split():
             updated_text.append(contractions[word]) if word in contractions else updated_text.append(word)
 
+            
     #lemmatization step
     lemma = WordNetLemmatizer()
     text = [lemma.lemmatize(word) for word in updated_text]
     
+    
     #check if the word is in the english dictionary
     text = [word for word in text if english_dictionary.check(word)]
     text = ' '.join(updated_text)  
+    
     
     #remove stop words
     #TODO: KEEP OR REMOVE STOP WORDS
@@ -60,7 +92,8 @@ def text_cleaner(text, number_of_sentences = 5, remove_stop_words=True, expand_w
         stops = set(stopwords.words("english"))
         text = [word for word in text if not word in stops]
         text = ' '.join(text)
-        
+    
+    
     #remove edge cases
     text = re.sub(r'[_"\-;”»–%()|+&=*%.,!?:#$@\[\]/]', ' ', text) #remove symbols from text
     text = re.sub(r'\n', '', text) #remove new line "\n"
@@ -68,7 +101,6 @@ def text_cleaner(text, number_of_sentences = 5, remove_stop_words=True, expand_w
     text = re.sub(r'\\', '', text) # remove "\\"
     text = re.sub(r'< eos >', '<eos>', text) # remove whitespace
     text = re.sub(r'``', '', text) #remove ``
-    
     
     # look into adapting '6', 'p', 'm'
     # look into removing ''
@@ -83,7 +115,6 @@ def text_cleaner(text, number_of_sentences = 5, remove_stop_words=True, expand_w
     # 
     
     return text
-        
         
 #apply text_cleaner to the entire dataset
 remove_keys = ['id','published'] 
@@ -301,7 +332,6 @@ processed_data = []
 
 #concatenate content, source and media-type values (appending to content) into 1 vector
 for sample in data:
-    
     title = sample['title']
     content = sample['content']; content.extend(sample['source']); content.extend(sample['media-type'].split())
     new_sample = {'title':title, 'content':content}
