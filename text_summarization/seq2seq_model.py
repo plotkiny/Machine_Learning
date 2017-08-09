@@ -1,7 +1,7 @@
 
 
 
-class configuration(object):
+class configuration():
     
     def __init__(self):
         
@@ -10,11 +10,11 @@ class configuration(object):
         self.batch_size = 64
         self.rnn_size = 256
         self.num_layers = 1
-        self.learning_rate = 0.005
+        self.learning_rate = 0.001
         self.keep_probability = 0.75
 
         self.learning_rate_decay = 0.95
-        self.min_learning_rate = 0.0005
+        self.min_learning_rate = 0.00005
         self.display_step = 20 
         self.stop_early = 0 
         self.stop = 3 
@@ -24,8 +24,7 @@ class configuration(object):
         self.optimizer = tf.train.AdamOptimizer
 
         # checkpoint path
-        self.ckpt_dir = '/home/paperspace/Documents/development/models/tensorflow/best_model_TEST.ckpt'
-
+        self.ckpt_dir = '/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckpt'
 
 class seq2seq(object):
     
@@ -164,7 +163,7 @@ class seq2seq(object):
             tf.summary.scalar('epoch_loss', tf.reduce_mean(self.batch_loss))
 
             #prediction sample for validation
-            self.valid_predictions = tf.identity(self.train_dec_outputs.sample_id, name='valid_preds')
+            self.train_predictions = tf.identity(self.train_dec_outputs.sample_id, name='valid_preds')
 
             #get training variables
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -189,8 +188,18 @@ class seq2seq(object):
                 output_time_major=False,
                 impute_finished=True, 
                 maximum_iterations=self.max_summary_length)
+            
+            # logits: [batch_size x max_dec_len x dec_vocab_size+1]
+            logits = tf.identity(self.infer_dec_outputs.rnn_output, 'logits')
 
-            logits = tf.identity(self.infer_dec_outputs.sample_id, name='predictions')
+            # Create the weights for sequence_loss
+            masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='masks')
+
+            #loss function
+            self.batch_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.targets, 
+                                                               weights=masks, name='batch_loss')
+
+            self.valid_predictions = tf.identity(self.infer_dec_outputs.sample_id, name='predictions')
 
             #get training variables
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -226,15 +235,15 @@ class seq2seq(object):
     def add_training_optimizer(self):   
         optimizer = self.optimizer(self.learning_rate, name='training_op')  #gradient clipping implemented
         gradients = optimizer.compute_gradients(self.batch_loss)
-        capped_gradients = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in gradients if grad is not None]
+        capped_gradients = [(tf.clip_by_norm(grad, 5.), var) for grad, var in gradients if grad is not None]
         self.training_op = optimizer.apply_gradients(capped_gradients)
 
     def save(self, sess, var_list=None, save_path=None):
         print('Saving model at {}'.format(save_path))
         if hasattr(self, 'training_variables'):
             var_list = self.training_variables
-        saver = tf.train.Saver(var_list)
-        saver.save(sess, save_path, write_meta_graph=False)
+        saver = tf.train.Saver(var_list, write_version = saver_pb2.SaverDef.V1)
+        saver.save(sess, save_path, write_meta_graph=True)
 
     def restore(self, sess, var_list=None, ckpt_path=None):
         if hasattr(self, 'training_variables'):
@@ -270,12 +279,8 @@ class seq2seq(object):
         
         update_loss_train = 0 
         batch_loss_train = 0
-        update_loss_validate = 0 
-        batch_loss_validate = 0
         summary_update_loss_train = [] # Record the update losses for saving improvements in the model
-        summary_update_loss_validate = []
 
-        
         update_check = (len(summaries)//self.batch_size//self.per_epoch)-1 
         
         for e in tqdm(range(self.epochs)):
@@ -291,7 +296,7 @@ class seq2seq(object):
                 # Evaluate 3 ops in the graph
                 # => valid_predictions, loss, training_op(optimzier)
                 batch_preds, batch_loss, _ = sess.run(
-                    [self.valid_predictions, self.batch_loss, self.training_op],
+                    [self.train_predictions, self.batch_loss, self.training_op],
                     feed_dict={
                         self.input_data: texts_batch,
                         self.targets: summaries_batch,
@@ -300,12 +305,12 @@ class seq2seq(object):
                         self.keep_prob: self.keep_probability,
                         self.text_length: texts_lengths,
                     })
-              
+             
                 batch_loss_train += batch_loss
                 update_loss_train += batch_loss
                 end_time = time.time()
                 batch_time = end_time - start_time  
-                
+
                 if batch_i % self.display_step == 0 and batch_i > 0:
                     print('Train_Epoch:{:>3}/{}    Train_Batch:{:>4}/{}    Train_Loss:{:>6.3f}   Seconds:{:>4.2f}'
                               .format(e,
@@ -315,7 +320,7 @@ class seq2seq(object):
                                       batch_loss_train / self.display_step, 
                                       batch_time*self.display_step))
                     batch_loss_train = 0
-
+            
                 if batch_i % update_check == 0 and batch_i > 0:
                     print("Average loss for this update:", round(update_loss_train/update_check,3))
                     summary_update_loss_train.append(update_loss_train)
@@ -332,9 +337,77 @@ class seq2seq(object):
                         if self.stop_early == self.stop:
                             break
                     update_loss_train = 0
-                              
+                
+
         if save_path:
             self.save(sess, save_path=save_path)
+            
+    def inference(self, sess, data_tuple, load_ckpt):
+        
+        self.restore(sess, ckpt_path=load_ckpt)
+
+        texts, summaries = data_tuple
+        update_check = (len(summaries)//self.batch_size//self.per_epoch)-1
+        update_loss_validate = 0
+        batch_loss_validate = 0
+        summary_update_loss_validate = []
+        
+        for e in tqdm(range(self.epochs)):
+
+            output_tuple_data = []
+            for batch_i, (summaries_batch, texts_batch, summaries_lengths, texts_lengths) in enumerate(
+                self.get_batches(texts, summaries)):
+
+                start_time = time.time()
+                batch_preds, batch_loss = sess.run(
+                    [self.valid_predictions, self.batch_loss],
+                    feed_dict={
+                        self.input_data: texts_batch,
+                        self.targets: summaries_batch,
+                        self.lr: self.learning_rate,
+                        self.summary_length: summaries_lengths,
+                        self.keep_prob: self.keep_probability,
+                        self.text_length: texts_lengths,
+                    })
+                
+                batch_loss_validate += batch_loss
+                update_loss_validate += batch_loss
+                end_time = time.time()
+                batch_time = end_time - start_time
+                print(batch_loss_validate / self.display_step)
+                print('----')
+                print(batch_loss)
+                
+                if batch_i % self.display_step == 0 and batch_i > 0:
+                    print('Validate_Epoch:{:>3}/{}    Validate_Batch:{:>4}/{}    Validate_Loss:{:>6.3f}   Seconds:{:>4.2f}'
+                          .format(epoch_i,
+                                  self.epochs, 
+                                  batch_i, 
+                                  len(texts) // self.batch_size, 
+                                  batch_loss_validate / self.display_step, 
+                                  batch_time*self.display_step))
+                    batch_loss_validate = 0
+                
+                if batch_i % update_check == 0 and batch_i > 0:
+                    print("Average loss for this update:", round(update_loss_validate/update_check,3))
+                    summary_update_loss_validate.append(update_loss_validate)   
+
+                for target_sent, input_sent, pred in zip(summaries_batch, texts_batch, batch_preds):
+
+                    pad = vocab_to_int["<pad>"]
+                    actual_title = ' '.join([int_to_vocab[index] for index in target_sent if index != pad])
+                    predicted_title = ' '.join([int_to_vocab[index] for index in pred if index != pad]) 
+
+                    output_tuple = (input_sent, actual_title, predicted_title, 
+                                    batch_loss_validate / self.display_step, round(update_loss_validate/update_check,3))
+                    output_tuple_data.append(output_tuple)
+                    
+                    #print('Actual Title:', actual_title)
+                    #print('Prediction:', predicted_title + '\n')
+            
+            with open(os.path.join(os.path.dirname(self.checkpoint), 'data/output_data_summary_epoch_{}.txt'.format(e)), 'wb') as output:
+                pickle.dump(output_tuple_data, output)
+            
            
 
 tf.reset_default_graph()
@@ -344,6 +417,13 @@ model.build()
 model.summary()
 print('Training model built!')
 
+tf.reset_default_graph()
+config = configuration()
+model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
+model.build()
+model.summary()
+print('Inference model built!')
+
 tf.reset_default_graph()     
 with tf.Session() as sess:
     config = configuration()
@@ -351,5 +431,15 @@ with tf.Session() as sess:
     model.build()
     data = (X_train, y_train)
     loss_history = model.train(sess, data, from_scratch=True, 
-                               save_path=model.checkpoint+f'epoch_{model.epochs}_attention')
+                               save_path=model.checkpoint+'epoch_{}_attention'.format(model.epochs))
+
+tf.reset_default_graph()     
+with tf.Session() as sess:
+    config = configuration()
+    model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
+    model.build()
+    data = (X_test, y_test)
+    loss_history = model.inference(sess, data, "/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckptepoch_30_attention")
+    
+    
     
