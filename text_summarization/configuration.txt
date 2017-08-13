@@ -1,0 +1,42 @@
+{
+"pipeline":{
+	"code":["<unk>","<pad>","<eos>","<go>"],
+    "language": "english",
+    "input_data": "/Users/yuriplotkin/Documents/Paperspace/local_testing/data/signalmedia-1m.jsonl",
+    "embedding_data":"/Users/yuriplotkin/Documents/Paperspace/local_testing/data/numberbatch-en-17.04b.txt",
+    "processed_data":"processed_data_aug12-TEST.txt",
+    "word_frequency_filename":"dictionary_aug12-TEST.txt",
+    "embed_matrix_filename":"embed_matrix_aug12-TEST.txt",
+    "word_to_ind_filename":"word_to_ind_aug12-TEST.txt",
+    "ind_to_word_filename":"ind_to_word_aug12-TEST.txt",
+    "remove_keys": ["id","published"],
+    "sample_sentence": 5,
+    "stop_words": "TRUE",
+    "expand_words": "TRUE",
+    "part_of_speech": "TRUE",
+    "threshold_count": 1,
+    "embed_dim": 300,
+    "max_length":20000
+  },
+  "model": {
+    "processed_data":"data_command_line.txt",
+    "word_to_ind":"word_to_ind_aug12-TEST.txt",
+    "ind_to_word":"ind_to_word_aug12-TEST.txt",
+    "embed_matrix":"embed_matrix_aug12-TEST.txt",
+    "checkpoint_directory":"/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckpt",
+    "epochs":30,
+    "batch_size": 64,
+    "rnn_size": 256,
+    "attention_size": 256,
+    "num_layers": 1,
+    "learning_rate": 0.001,
+    "keep_probability": 0.75,
+    "learning_rate_decay": 0.95,
+    "min_learning_rate": 0.00005,
+    "display_step": 20,
+    "stop_early": 0,
+    "stop": 3,
+    "per_epoch": 3,
+    "fold": 3
+  }
+}
