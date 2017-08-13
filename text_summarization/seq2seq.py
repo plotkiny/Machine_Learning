@@ -1,32 +1,16 @@
+#!usr/bin/env/python
+
+import time, os, pickle
+import numpy as np
+import tensorflow as tf
+from sklearn.model_selection import KFold
+from tensorflow.python.layers.core import Dense
+from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
+from tensorflow.core.protobuf import saver_pb2
+from tqdm import tqdm
 
 
-
-class configuration():
-    
-    def __init__(self):
-        
-        # hyperparameters
-        self.epochs = 30 # was 50, use 100
-        self.batch_size = 64
-        self.rnn_size = 256
-        self.num_layers = 1
-        self.learning_rate = 0.001
-        self.keep_probability = 0.75
-
-        self.learning_rate_decay = 0.95
-        self.min_learning_rate = 0.00005
-        self.display_step = 20 
-        self.stop_early = 0 
-        self.stop = 3 
-        self.per_epoch = 3 
-        
-        #set optimizer
-        self.optimizer = tf.train.AdamOptimizer
-
-        # checkpoint path
-        self.ckpt_dir = '/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckpt'
-
-class seq2seq(object):
+class Seq2Seq(object):
     
     def __init__(self, configuration, *args):
         
@@ -38,23 +22,25 @@ class seq2seq(object):
                         
         assert self.mode in ['training', 'evaluation', 'inference']
 
-        self.batch_size = configuration.batch_size
-        self.checkpoint = configuration.ckpt_dir
-        self.display_step = configuration.display_step
-        self.epochs = configuration.epochs
-        self.keep_probability = configuration.keep_probability
-        self.learning_rate = configuration.learning_rate
-        self.learning_rate_decay = configuration.learning_rate_decay
-        self.num_layers = configuration.num_layers
-        self.min_learning_rate = configuration.min_learning_rate
-        self.per_epoch = configuration.per_epoch
-        self.rnn_size = configuration.rnn_size
-        self.stop = configuration.stop
-        self.stop_early = configuration.stop_early
+        self.batch_size = configuration['batch_size']
+        self.checkpoint = configuration['checkpoint_directory']
+        self.display_step = configuration['display_step']
+        self.epochs = configuration['epochs']
+        self.keep_probability = configuration['keep_probability']
+        self.learning_rate = configuration['learning_rate']
+        self.learning_rate_decay = configuration['learning_rate_decay']
+        self.num_layers = configuration['num_layers']
+        self.min_learning_rate = configuration['min_learning_rate']
+        self.per_epoch = configuration['per_epoch']
+        self.attn_size = configuration['attention_size']
+        self.rnn_size = configuration['rnn_size']
+        self.stop = configuration['stop']
+        self.stop_early = configuration['stop_early']
+        self.fold = configuration['fold']
         self.vocab_size = len(self.vocab_to_int)+1
 
         
-        self.optimizer = configuration.optimizer
+        self.optimizer = tf.train.AdamOptimizer
         
         #NEED TO DO!!!!! for the encoder
         #self.rnn_inputs
@@ -106,7 +92,7 @@ class seq2seq(object):
         dec_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
         
         attn_mech = tf.contrib.seq2seq.BahdanauAttention(
-            num_units=self.rnn_size, 
+            num_units=self.attn_size,
             memory=self.enc_output, 
             memory_sequence_length=self.text_length, 
             normalize=False,
@@ -114,8 +100,8 @@ class seq2seq(object):
 
         dec_cell = tf.contrib.seq2seq.DynamicAttentionWrapper(
             cell=dec_cell, 
-            attention_mechanism=attn_mech, 
-            attention_size=self.rnn_size)
+            attention_mechanism=attn_mech,
+            attention_size=self.attn_size)
         
         output_layer = Dense(
             self.vocab_size, 
@@ -123,7 +109,7 @@ class seq2seq(object):
     
         initial_state = tf.contrib.seq2seq.DynamicAttentionWrapperState(
             cell_state=self.enc_state[0],
-            attention=_zero_state_tensors(self.rnn_size, self.batch_size, tf.float32))   
+            attention=_zero_state_tensors(self.attn_size, self.batch_size, tf.float32))
 
         if self.mode == 'training':
 
@@ -276,6 +262,9 @@ class seq2seq(object):
         sess.run(tf.global_variables_initializer())
         
         texts, summaries = data_tuple
+
+        #implmenting k-fold cross validation - creating training and validation sets
+        kfold = KFold(n_splits=self.fold, shuffle=True, random_state=11)
         
         update_loss_train = 0 
         batch_loss_train = 0
@@ -380,7 +369,7 @@ class seq2seq(object):
                 
                 if batch_i % self.display_step == 0 and batch_i > 0:
                     print('Validate_Epoch:{:>3}/{}    Validate_Batch:{:>4}/{}    Validate_Loss:{:>6.3f}   Seconds:{:>4.2f}'
-                          .format(epoch_i,
+                          .format(e,
                                   self.epochs, 
                                   batch_i, 
                                   len(texts) // self.batch_size, 
@@ -407,39 +396,3 @@ class seq2seq(object):
             
             with open(os.path.join(os.path.dirname(self.checkpoint), 'data/output_data_summary_epoch_{}.txt'.format(e)), 'wb') as output:
                 pickle.dump(output_tuple_data, output)
-            
-           
-
-tf.reset_default_graph()
-config = configuration()
-model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'training')
-model.build()
-model.summary()
-print('Training model built!')
-
-tf.reset_default_graph()
-config = configuration()
-model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
-model.build()
-model.summary()
-print('Inference model built!')
-
-tf.reset_default_graph()     
-with tf.Session() as sess:
-    config = configuration()
-    model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'training')
-    model.build()
-    data = (X_train, y_train)
-    loss_history = model.train(sess, data, from_scratch=True, 
-                               save_path=model.checkpoint+'epoch_{}_attention'.format(model.epochs))
-
-tf.reset_default_graph()     
-with tf.Session() as sess:
-    config = configuration()
-    model = seq2seq(config, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
-    model.build()
-    data = (X_test, y_test)
-    loss_history = model.inference(sess, data, "/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckptepoch_30_attention")
-    
-    
-    
