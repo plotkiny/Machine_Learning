@@ -1,1 +1,1 @@
-# Text Summarization: A NLP and Deep Learning Approach
+# Title Generation using Text Summarization: A Deep Learning Approach

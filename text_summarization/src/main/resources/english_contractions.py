@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jul 20 11:24:08 2017
-@author: yuriplotkin
-"""
 
 # A list of contractions from http://stackoverflow.com/questions/19790188/expanding-english-language-contractions-in-python
-contractions = { 
+Contractions = {
     "ain't": "am not",
     "aren't": "are not",
     "can't": "cannot",

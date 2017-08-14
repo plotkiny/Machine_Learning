@@ -23,7 +23,7 @@
     "word_to_ind":"word_to_ind_aug12-TEST.txt",
     "ind_to_word":"ind_to_word_aug12-TEST.txt",
     "embed_matrix":"embed_matrix_aug12-TEST.txt",
-    "checkpoint_directory":"/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckpt",
+    "checkpoint_file":"/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/seq2seq_tutorial/best_model.ckpt",
     "epochs":30,
     "batch_size": 64,
     "rnn_size": 256,

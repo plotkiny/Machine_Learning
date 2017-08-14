@@ -1,13 +1,12 @@
 #!usr/bin/env/python
 
-import os,sys
-import tensorflow as tf
-sys.stderr.write('TensorFlow Version: {}'.format(tf.__version__))
-
-from sklearn.model_selection import train_test_split
-from load import Loading
-from seq2seq import Seq2Seq
+import os
 import sys
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from src.main.resources.load import Loading
+from src.main.model.seq2seq import Seq2Seq
+sys.stderr.write('TensorFlow Version: {}'.format(tf.__version__))
 
 def main(configuration_file, output_directory, type):
 
@@ -15,11 +14,13 @@ def main(configuration_file, output_directory, type):
     assert (os.path.isdir(output_directory) == True)
 
     configuration = Loading.read_json(configuration_file)['model']
+
     try:
         processed_data = Loading.load_pickle(os.path.join(output_directory, configuration['processed_data']))
         vocab_to_int = Loading.load_pickle(os.path.join(output_directory, configuration['word_to_ind']))
         int_to_vocab = Loading.load_pickle(os.path.join(output_directory, configuration['ind_to_word']))
         word_embedding_matrix = Loading.load_pickle(os.path.join(output_directory, configuration['embed_matrix']))
+
     except OSError:
         print('One of the files is missing')
 
@@ -49,7 +50,7 @@ def main(configuration_file, output_directory, type):
             model = Seq2Seq(configuration, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
             model.build()
             data = (X_test, y_test)
-            loss_history = model.inference(sess, data, os.path.join(configuration_file, 'best_model.ckpt'))
+            loss_history = model.inference(sess, data, configuration['checkpoint_file'])
             sys.stderr.write('Starting Model Prediction!')
 
 

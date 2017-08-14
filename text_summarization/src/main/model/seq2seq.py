@@ -15,15 +15,15 @@ class Seq2Seq(object):
     def __init__(self, configuration, *args):
         
         #additional required arguments
-        self.embeddings = args[0]
-        self.vocab_to_int = args[1]
-        self.int_to_vocab = args[2]
-        self.mode = args[3]
+        self.embeddings = args[1]
+        self.vocab_to_int = args[2]
+        self.int_to_vocab = args[3]
+        self.mode = args[4]
                         
         assert self.mode in ['training', 'evaluation', 'inference']
 
         self.batch_size = configuration['batch_size']
-        self.checkpoint = configuration['checkpoint_directory']
+        self.checkpoint = configuration['checkpoint_file']
         self.display_step = configuration['display_step']
         self.epochs = configuration['epochs']
         self.keep_probability = configuration['keep_probability']
@@ -38,8 +38,6 @@ class Seq2Seq(object):
         self.stop_early = configuration['stop_early']
         self.fold = configuration['fold']
         self.vocab_size = len(self.vocab_to_int)+1
-
-        
         self.optimizer = tf.train.AdamOptimizer
         
         #NEED TO DO!!!!! for the encoder
@@ -64,7 +62,7 @@ class Seq2Seq(object):
     
     def process_encoding_input(self):
         
-        #Remove the last word id from each batch and concat the <GO> to the begining of each batch
+        #Remove the last word id from each batch and concat the <go> to the begining of each batch
         ending = tf.strided_slice(self.targets, [0, 0], [self.batch_size, -1], [1, 1])
         dec_input = tf.concat([tf.fill([self.batch_size, 1], self.vocab_to_int['<go>']), ending], 1)
 
@@ -175,10 +173,10 @@ class Seq2Seq(object):
                 impute_finished=True, 
                 maximum_iterations=self.max_summary_length)
             
-            # logits: [batch_size x max_dec_len x dec_vocab_size+1]
+            #logits: [batch_size x max_dec_len x dec_vocab_size+1]
             logits = tf.identity(self.infer_dec_outputs.rnn_output, 'logits')
 
-            # Create the weights for sequence_loss
+            #create the weights for sequence_loss
             masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='masks')
 
             #loss function
@@ -383,9 +381,9 @@ class Seq2Seq(object):
 
                 for target_sent, input_sent, pred in zip(summaries_batch, texts_batch, batch_preds):
 
-                    pad = vocab_to_int["<pad>"]
-                    actual_title = ' '.join([int_to_vocab[index] for index in target_sent if index != pad])
-                    predicted_title = ' '.join([int_to_vocab[index] for index in pred if index != pad]) 
+                    pad = self.vocab_to_int["<pad>"]
+                    actual_title = ' '.join([self.int_to_vocab[index] for index in target_sent if index != pad])
+                    predicted_title = ' '.join([self.int_to_vocab[index] for index in pred if index != pad])
 
                     output_tuple = (input_sent, actual_title, predicted_title, 
                                     batch_loss_validate / self.display_step, round(update_loss_validate/update_check,3))

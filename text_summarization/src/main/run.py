@@ -1,8 +1,10 @@
 #!usr/bin/env/python
 
 import argparse
-import run_nlp
-import run_model
+
+from src.main.data_processing import run_nlp
+from src.main.model import run_model
+
 
 class CreatePipeline(object):
 
@@ -34,12 +36,6 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--train', action='store_true', help='Run both NLP text pre-processing and Seq2Seq model')
     parser.add_argument('-p','--predict', action='store_true', help='Use Seq2Seq model neural network on processed text')
     args = parser.parse_args()
-
-    print('output {}'.format(args.output))
-    print('all {}'.format(args.all))
-    print('pre-process {}'.format(args.pre_process))
-    print('train {}'.format(args.train))
-    print('predict {}'.format(args.predict))
 
     #check some conditions
     if not args.output:

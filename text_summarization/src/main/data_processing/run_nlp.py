@@ -1,10 +1,10 @@
 #!usr/bin/env/python
 
+import os
+import sys
 import pandas as pd
-import os,sys
-import nlp
-from load import Loading
-
+from src.main.data_processing import nlp
+from src.main.resources.load import Loading
 
 
 def main(configuration_file, output_directory):
@@ -15,14 +15,14 @@ def main(configuration_file, output_directory):
     data = Loading.read_data(configuration['input_data'])
     data = data[:100]
 
-    ppre_processing = nlp.PreProcessing(configuration)
+    pre_processing = nlp.PreProcessing(configuration)
     post_processing = nlp.PostProcessing(configuration)
 
     processed_li = []
     for sample in data:
         text_dictionary = {k:v for k,v in sample.items() if k not in configuration['remove_keys']}   #remove unneeded key:value items
         for k,v in text_dictionary.items():
-            text = ppre_processing.cleaning_text(v)
+            text = pre_processing.cleaning_text(v)
             text_dictionary[k] = text
         processed_li.append(text_dictionary)
 
@@ -31,6 +31,7 @@ def main(configuration_file, output_directory):
     word_to_ind, ind_to_word, embed_matrix, words_without_embeddings = post_processing.prune_and_embed(counter_dictionary,
                                                                                                    embedding_list)
 
+    assert (embed_matrix.shape == (len(word_to_ind), configuration['embed_dim']))
 
     Loading.save_pickle(os.path.join(output_directory, configuration['word_frequency_filename']), counter_dictionary)
     Loading.save_pickle(os.path.join(output_directory, configuration['embed_matrix_filename']), embed_matrix)

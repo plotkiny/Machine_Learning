@@ -1,18 +1,17 @@
 #!usr/bin/env/python
 
-import sys,re, string
-import numpy as np
 import random
+import re
+import string
 import enchant
+import numpy as np
 from collections import Counter
+from nltk import pos_tag
+from nltk.corpus import stopwords
+from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize
 from nltk.tokenize import word_tokenize
-from nltk.stem.wordnet import WordNetLemmatizer
-from nltk.corpus import stopwords
-from nltk import pos_tag
-
-sys.path.append("/Users/yuriplotkin/Documents/Paperspace/local_testing/pipeline1/")
-from english_contractions import contractions
+from main.resources.english_contractions import Contractions
 
 
 class PreProcessing(object):
@@ -50,9 +49,10 @@ class PreProcessing(object):
         max_length = len(text)
         count = self.number_to_collect - 3
 
-            #take the first three sentences of the paragraph
-        #do we want to randomly sample sentences from the paragraph
-        #need to make sure the maximum # of sentences is not smaller then number_to_collect
+        #take the first three sentences of the paragraph
+        #do we want to randomly sample sentences from the paragraph (if number of sentences is >3)
+        #if random sample = True, then we randomly sample 2 sentences from the rest of the paragraph
+
         if not self.sample_sentence:
             index = self.number_to_collect if self.number_to_collect < max_length else max_length
             text = text[:index]
@@ -66,7 +66,7 @@ class PreProcessing(object):
 
     def part_of_speech_tagging(self, text):
 
-        translation = str.maketrans("","", string.punctuation);
+        translation = str.maketrans("","", string.punctuation)
         tagged_tuples = [pos_tag(word_tokenize(sentence)) for sentence in text] #list of lists with each list containing (word, tag)
         list_of_tags = [[item[1] for item in li] for li in tagged_tuples] #get the tag for each word, returns list of lists
         list_of_tags = [' '.join(li).translate(translation) for li in list_of_tags] #list of strings with tags
@@ -85,7 +85,7 @@ class PreProcessing(object):
     def expand_contractions(self,text):
         updated_text = []  #updated_text is a list of words
         for word in text.split():
-            updated_text.append(contractions[word]) if word in contractions else updated_text.append(word)
+            updated_text.append(Contractions[word]) if word in Contractions else updated_text.append(word)
         return updated_text
 
     def lemmatization(self,text):
@@ -123,7 +123,7 @@ class PreProcessing(object):
             text = self.sample_sentence_method(text)
 
         if self.part_of_speech:
-            tags = self.part_of_speech_tagging
+            tags = self.part_of_speech_tagging(text)
 
         text = self.end_of_sentence(text)
         text = self.lower_case(text)
@@ -162,10 +162,7 @@ class PostProcessing(object):
             for v in sample.values():
                 text = word_tokenize(v)
                 for word in text:
-                    if word not in counter_dictionary:
-                        counter_dictionary[word] = 1
-                    else:
-                        counter_dictionary[word] += 1
+                    counter_dictionary[word] += 1 if word in counter_dictionary else 1
 
         return counter_dictionary
 
@@ -183,7 +180,7 @@ class PostProcessing(object):
 
     def prune_and_embed(self, counter_dictionary, embedding_list):
 
-        assert (self.embed_dim > 100)
+        assert(self.embed_dim > 100)
 
         # set threshold, if greater than threshold, keep
         corpora_count_with_threshold = {k: v for k, v in counter_dictionary.items() if v >= self.threshold_count}
@@ -221,7 +218,7 @@ class PostProcessing(object):
                 embed_matrix[index] = create_embedding
                 words_without_embeddings.append(word)
 
-        return (word_to_ind, ind_to_word, embed_matrix, words_without_embeddings)
+        return word_to_ind, ind_to_word, embed_matrix, words_without_embeddings
 
     def get_index(self, word, word_to_ind):
         return word_to_ind[word] if word in word_to_ind else word_to_ind["<unk>"]
@@ -254,8 +251,6 @@ def remove_reviews_and_set_padding(processed_li_to_ind, count_dataframe, word_to
 
     # assuming a gaussian distribution, using about 2 standard deviations away from the mean
     content_len = int(np.percentile(count_dataframe.content, 60))
-    media_type_len = int(np.percentile(count_dataframe.media_type, 60))
-    source_len = int(np.percentile(count_dataframe.source, 60))
     title_len = int(np.percentile(count_dataframe.title, 60))
 
     # removing samples with too many unknown words
