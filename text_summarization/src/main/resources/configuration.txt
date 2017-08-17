@@ -2,8 +2,8 @@
 "pipeline":{
 	"code":["<unk>","<pad>","<eos>","<go>"],
     "language": "english",
-    "input_data": "/Users/yuriplotkin/Documents/Paperspace/local_testing/data/signalmedia-1m.jsonl",
-    "embedding_data":"/Users/yuriplotkin/Documents/Paperspace/local_testing/data/numberbatch-en-17.04b.txt",
+    "input_data": "/path_to_input_file/input_file.jsonl",
+    "embedding_data":"/path_to_embeddings_file/numberbatch-en-17.04b.txt",
     "processed_data":"processed_data_aug12-TEST.txt",
     "word_frequency_filename":"dictionary_aug12-TEST.txt",
     "embed_matrix_filename":"embed_matrix_aug12-TEST.txt",
@@ -23,8 +23,10 @@
     "word_to_ind":"word_to_ind_aug12-TEST.txt",
     "ind_to_word":"ind_to_word_aug12-TEST.txt",
     "embed_matrix":"embed_matrix_aug12-TEST.txt",
-    "checkpoint_directory":"/Users/yuriplotkin/Documents/Paperspace/local_testing/Experiments/command_line_tests/best_model.ckpt",
-    "epochs":5,
+    "checkpoint_directory":"/path_to_checkpoint_directory/best_model.ckpt",
+    "random_state": 11,
+    "train_test_split": .20
+    "epochs": 5,
     "batch_size": 64,
     "rnn_size": 256,
     "attention_size": 256,
