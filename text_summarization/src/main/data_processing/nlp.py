@@ -6,6 +6,7 @@ import string
 import enchant
 import numpy as np
 from collections import Counter
+from collections import defaultdict
 from nltk import pos_tag
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
@@ -111,18 +112,17 @@ class PreProcessing(object):
         text = re.sub(r'--', '', text) # remove "--"
         text = re.sub(r'\\', '', text) # remove "\\"
         text = re.sub(r'< eos >', '<eos>', text) # remove whitespace
-        text = re.sub(r'``', '', text) #remove ``
-
+        text = re.sub(r'``', '', text) #remove
         return text
 
-    def cleaning_text(self,text):
+    def cleaning_text(self, k, text):
 
         text = self.tokenize_sentence(text)
 
         if self.sample_sentence:
             text = self.sample_sentence_method(text)
 
-        if self.part_of_speech:
+        if self.part_of_speech and k == 'content':
             tags = self.part_of_speech_tagging(text)
 
         text = self.end_of_sentence(text)
@@ -139,11 +139,10 @@ class PreProcessing(object):
 
         text = self.regex_removal(text)
 
-        if self.part_of_speech:
+        if self.part_of_speech and k == 'content':
             text = '{} {}'.format(text, tags)
 
         return text
-
 
 class PostProcessing(object):
 
@@ -157,13 +156,12 @@ class PostProcessing(object):
     #distribution of words in the corpus
     def counter(self,processed_li):
 
-        counter_dictionary = {}
+        counter_dictionary = defaultdict(int)
         for sample in processed_li:
             for v in sample.values():
                 text = word_tokenize(v)
                 for word in text:
                     counter_dictionary[word] += 1 if word in counter_dictionary else 1
-
         return counter_dictionary
 
     def get_embeddings(self):
@@ -175,7 +173,6 @@ class PostProcessing(object):
                 word = vector[0]
                 embedding = np.array(vector[1:], dtype='float32')
                 embedding_dic[word] = embedding
-
         return embedding_dic
 
     def prune_and_embed(self, counter_dictionary, embedding_list):
@@ -244,6 +241,8 @@ def is_padding_required(v, min_len, word_to_ind):
         v += difference * [padding_index]
     elif len_of_v == min_len:
         pass
+
+    assert(len(v) == min_len)
 
     return v
 

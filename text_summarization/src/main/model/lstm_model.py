@@ -1,36 +1,29 @@
-
-
-import sys, pickle, random
-import numpy as np
-
 from __future__ import print_function
-from keras.layers import Activation, Dense, Dropout, Input, LSTM
+
+import random
+import numpy as np
+from keras.callbacks import ModelCheckpoint
+from keras.layers import Dense, Dropout, Input, LSTM
 from keras.layers.core import RepeatVector
 from keras.layers.wrappers import TimeDistributed
 from keras.models import Model
-from keras.layers.core import RepeatVector
-from keras.layers.embeddings import Embedding
+from keras.optimizers import Adam  # look into RMSProp optimizer
 from keras.regularizers import l2
-from keras.optimizers import RMSprop, Adam
-from keras.utils.data_utils import get_file
-from keras.callbacks import ModelCheckpoint
-from keras.utils import np_utils
+
+from main.resources import Loading
 
 #loading  data as a list of jsons
 #TODO: look into saving and loading the file as tf.record (if using tensorflow)
 #TODO: make sure saved values are INTEGERS and not STRINGS
 
-with open("/home/paperspace/Documents/code/pipeline3/processed_data-20K_vocab-75th_percentile-with_sampling.txt", "rb") as f:   # Unpickling
-    processed_text = pickle.load(f)
+processed_text = Loading.load_pickle('/path/to/processed/data.txt')
+word_to_int = Loading.load_pickle('/path/to/word_to_ind.txt')
+int_to_word = Loading.load_pickle('/path/to/ind_to_word.txt')
+embed_matrix = Loading.load_pickle('/path/to/embed_matrix.txt')
 
-with open("/home/paperspace/Documents/data/word_to_ind.txt", "rb") as f:   # Unpickling
-    word_to_int = pickle.load(f)
-    
-with open("/home/paperspace/Documents/data/ind_to_word.txt", "rb") as f:   # Unpickling
-    int_to_word = pickle.load(f)
-    
+
 unique_features = len(word_to_int)
-keys = ['content','title']    
+keys = ['content','title']
 content = np.array([v for d in processed_text for k,v in d.items() if k == keys[0]]); content = content.astype('int64')
 title = np.array([v for d in processed_text for k,v in d.items() if k == keys[1]]); title = title.astype('int64')
 
@@ -61,9 +54,9 @@ np.random.seed(seed)
 content_time_stamp = content.shape[1]
 title_time_stamp = title.shape[1]
 
-ident_matrix = np.eye(unique_features, dtype='bool')
-ident_matrix_expand = np.expand_dims(ident_matrix,0)
-identity_matrix = np.tile(ident_matrix_expand, (batch_size, 1, 1)) #(batch size, time_input, features)
+identity_matrix = np.eye(unique_features, dtype='bool')
+ident_matrix = np.expand_dims(identity_matrix,0)
+identity_matrix = np.tile(ident_matrix, (batch_size, 1, 1)) #(batch size, time_input, features)
 
 #create generator to feed in batches
 def batch(content, title, batch_size):
@@ -112,6 +105,9 @@ for content, title in batch(content, title, batch_size):
         identity_sample_extend = np.expand_dims(identity_sample,0)
         XX = np.tile(identity_sample_extend, (1, 1, 1)) #(batch size, time_input, features)
         prediction = model.predict(XX, verbose=0)
+        print(prediction)
+
+
 
 
 

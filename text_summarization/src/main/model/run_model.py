@@ -4,9 +4,10 @@ import os
 import sys
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from src.main.resources.load import Loading
-from src.main.model.seq2seq import Seq2Seq
-sys.stderr.write('TensorFlow Version: {}'.format(tf.__version__))
+from main.resources import Loading
+from main.model.seq2seq import Seq2Seq
+
+sys.stderr.write('Package Using TensorFlow Version: {} \n '.format(tf.__version__))
 
 def main(configuration_file, output_directory, type):
 
@@ -41,8 +42,9 @@ def main(configuration_file, output_directory, type):
             model.build()
             data = (X_train, y_train)
             loss_history = model.train(sess, data, from_scratch=True,
-                                       save_path=model.checkpoint + 'epoch_{}_attention'.format(model.epochs))
-            sys.stderr.write('Starting Model Training!')
+                                       load_ckpt= model.checkpoint,
+                                       save_path=model.checkpoint)
+
 
     elif type == 'predict':
 
@@ -50,9 +52,4 @@ def main(configuration_file, output_directory, type):
             model = Seq2Seq(configuration, word_embedding_matrix, vocab_to_int, int_to_vocab, 'inference')
             model.build()
             data = (X_test, y_test)
-            loss_history = model.inference(sess, data, configuration['checkpoint_file'])
-            sys.stderr.write('Starting Model Prediction!')
-
-
-
-
+            loss_history = model.inference(sess, data, configuration['checkpoint_directory'])

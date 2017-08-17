@@ -1,29 +1,32 @@
 #!usr/bin/env/python
 
-import time, os, pickle
+import os
+import time
 import numpy as np
 import tensorflow as tf
-from sklearn.model_selection import KFold
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 from tensorflow.core.protobuf import saver_pb2
+from main.resources import Loading
+from sklearn.model_selection import KFold
 from tqdm import tqdm
+
 
 
 class Seq2Seq(object):
     
-    def __init__(self, configuration, *args):
+    def __init__(self, configuration, embedding, v_to_i, i_to_v, mode):
         
         #additional required arguments
-        self.embeddings = args[1]
-        self.vocab_to_int = args[2]
-        self.int_to_vocab = args[3]
-        self.mode = args[4]
+        self.embeddings = embedding
+        self.vocab_to_int = v_to_i
+        self.int_to_vocab = i_to_v
+        self.mode = mode
                         
         assert self.mode in ['training', 'evaluation', 'inference']
 
         self.batch_size = configuration['batch_size']
-        self.checkpoint = configuration['checkpoint_file']
+        self.checkpoint = configuration['checkpoint_directory']
         self.display_step = configuration['display_step']
         self.epochs = configuration['epochs']
         self.keep_probability = configuration['keep_probability']
@@ -74,8 +77,8 @@ class Seq2Seq(object):
         enc_embed_input = tf.nn.embedding_lookup(self.embeddings, self.input_data)
         forward_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
         backward_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
-        enc_output, self.enc_state = tf.nn.bidirectional_dynamic_rnn(forward_cell, backward_cell, enc_embed_input, self.text_length, 
-                                                                dtype=tf.float32)
+        enc_output, self.enc_state = tf.nn.bidirectional_dynamic_rnn(forward_cell, backward_cell, enc_embed_input,
+                                                                     self.text_length, dtype=tf.float32)
         
         #cocatenate the forward and backward outputs
         self.enc_output = tf.concat(enc_output,2)
@@ -84,11 +87,18 @@ class Seq2Seq(object):
         
         start_token = self.vocab_to_int['<go>']
         end_token = self.vocab_to_int['<eos>']
-        
+
+        #dynamic batch size
+        dynamic_batch_size = tf.shape(self.input_data)[0]
+
+        #create the decoder embeddings and cell
+        #the decoder in
         dec_input = self.process_encoding_input()
         dec_embed_input = tf.nn.embedding_lookup(self.embeddings, dec_input)
         dec_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
-        
+
+        #wrapping decoder with attention
+        ##########
         attn_mech = tf.contrib.seq2seq.BahdanauAttention(
             num_units=self.attn_size,
             memory=self.enc_output, 
@@ -100,14 +110,16 @@ class Seq2Seq(object):
             cell=dec_cell, 
             attention_mechanism=attn_mech,
             attention_size=self.attn_size)
-        
+
+        initial_state = tf.contrib.seq2seq.DynamicAttentionWrapperState(
+            cell_state=self.enc_state[0],
+            attention=_zero_state_tensors(self.attn_size, dynamic_batch_size, tf.float32))
+        ##########
+
+        #dense final layer
         output_layer = Dense(
             self.vocab_size, 
             kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
-    
-        initial_state = tf.contrib.seq2seq.DynamicAttentionWrapperState(
-            cell_state=self.enc_state[0],
-            attention=_zero_state_tensors(self.attn_size, self.batch_size, tf.float32))
 
         if self.mode == 'training':
 
@@ -134,14 +146,14 @@ class Seq2Seq(object):
             # dec_outputs.sample_id [batch_size], tf.int32
 
             # logits: [batch_size x max_dec_len x dec_vocab_size+1]
-            logits = tf.identity(self.train_dec_outputs.rnn_output, 'logits')
+            logits = tf.identity(self.train_dec_outputs.rnn_output, 'train_logits')
 
             # Create the weights for sequence_loss
-            masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='masks')
+            masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='train_masks')
 
             #loss function
             self.batch_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.targets, 
-                                                               weights=masks, name='batch_loss')
+                                                               weights=masks, name='train_batch_loss')
 
             #tensorboard operations 
             tf.summary.scalar('epoch_loss', tf.reduce_mean(self.batch_loss))
@@ -154,7 +166,7 @@ class Seq2Seq(object):
 
         elif self.mode == 'inference':
 
-            start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [self.batch_size], name='start_tokens')
+            start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [dynamic_batch_size], name='start_tokens')
 
             inference_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
                 embedding=self.embeddings, 
@@ -172,49 +184,30 @@ class Seq2Seq(object):
                 output_time_major=False,
                 impute_finished=True, 
                 maximum_iterations=self.max_summary_length)
-            
-            #logits: [batch_size x max_dec_len x dec_vocab_size+1]
-            logits = tf.identity(self.infer_dec_outputs.rnn_output, 'logits')
 
-            #create the weights for sequence_loss
-            masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='masks')
-
-            #loss function
-            self.batch_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.targets, 
-                                                               weights=masks, name='batch_loss')
-
-            self.valid_predictions = tf.identity(self.infer_dec_outputs.sample_id, name='predictions')
+            self.valid_predictions = tf.identity(self.infer_dec_outputs.sample_id, name='infer_preds')
 
             #get training variables
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-
-    def pad_sentence_batch(self, sentence_batch):
-        
-        #Pad sentences with <pad> so that each sentence of a batch has the same length"""
-        max_sentence = max([len(sentence) for sentence in sentence_batch])
-        
-        return [sentence + [self.vocab_to_int['<pad>']] * (max_sentence - len(sentence)) for sentence in sentence_batch]
 
     def get_batches(self, sorted_texts, sorted_summaries):
     
         #batch summaries, texts, and the lengths of their sentences together"""
         for batch_i in range(0, len(sorted_texts)// self.batch_size):
             start_i = batch_i * self.batch_size
-            summaries_batch = sorted_summaries[start_i:start_i + self.batch_size]
-            texts_batch = sorted_texts[start_i:start_i + self.batch_size]
-            pad_summaries_batch = np.array(self.pad_sentence_batch(summaries_batch))
-            pad_texts_batch = np.array(self.pad_sentence_batch(texts_batch))
+            summaries_batch = np.array(sorted_summaries[start_i:start_i + self.batch_size])
+            texts_batch = np.array(sorted_texts[start_i:start_i + self.batch_size])
 
             # Need the lengths for the _lengths parameters
             pad_summaries_lengths = []
-            for summary in pad_summaries_batch:
+            for summary in summaries_batch:
                 pad_summaries_lengths.append(len(summary))
 
             pad_texts_lengths = []
-            for text in pad_texts_batch:
+            for text in texts_batch:
                 pad_texts_lengths.append(len(text))
 
-            yield pad_summaries_batch, pad_texts_batch, pad_summaries_lengths, pad_texts_lengths
+            yield summaries_batch, texts_batch, pad_summaries_lengths, pad_texts_lengths
             
     def add_training_optimizer(self):   
         optimizer = self.optimizer(self.learning_rate, name='training_op')  #gradient clipping implemented
@@ -274,10 +267,11 @@ class Seq2Seq(object):
             
             update_loss_train = 0
             batch_loss_train = 0
+            output_tuple_data = []
             
             for batch_i, (summaries_batch, texts_batch, summaries_lengths, texts_lengths) in enumerate(
                 self.get_batches(texts, summaries)):
-                
+
                 start_time = time.time()
                 
                 # Evaluate 3 ops in the graph
@@ -292,13 +286,18 @@ class Seq2Seq(object):
                         self.keep_prob: self.keep_probability,
                         self.text_length: texts_lengths,
                     })
-             
+
                 batch_loss_train += batch_loss
                 update_loss_train += batch_loss
                 end_time = time.time()
-                batch_time = end_time - start_time  
+                batch_time = end_time - start_time
 
                 if batch_i % self.display_step == 0 and batch_i > 0:
+
+                    output_tuple = (e, self.epochs, batch_i, len(texts) // self.batch_size,
+                                    batch_loss_train / self.display_step, batch_time*self.display_step)
+                    output_tuple_data.append(output_tuple)
+
                     print('Train_Epoch:{:>3}/{}    Train_Batch:{:>4}/{}    Train_Loss:{:>6.3f}   Seconds:{:>4.2f}'
                               .format(e,
                                       self.epochs, 
@@ -324,7 +323,8 @@ class Seq2Seq(object):
                         if self.stop_early == self.stop:
                             break
                     update_loss_train = 0
-                
+
+            Loading.save_pickle(os.path.join(os.path.dirname(self.checkpoint), 'data/output_data_training_epoch_{}.txt'.format(e)), output_tuple_data)
 
         if save_path:
             self.save(sess, save_path=save_path)
@@ -332,12 +332,7 @@ class Seq2Seq(object):
     def inference(self, sess, data_tuple, load_ckpt):
         
         self.restore(sess, ckpt_path=load_ckpt)
-
         texts, summaries = data_tuple
-        update_check = (len(summaries)//self.batch_size//self.per_epoch)-1
-        update_loss_validate = 0
-        batch_loss_validate = 0
-        summary_update_loss_validate = []
         
         for e in tqdm(range(self.epochs)):
 
@@ -346,8 +341,8 @@ class Seq2Seq(object):
                 self.get_batches(texts, summaries)):
 
                 start_time = time.time()
-                batch_preds, batch_loss = sess.run(
-                    [self.valid_predictions, self.batch_loss],
+                batch_preds = sess.run(
+                    [self.valid_predictions],
                     feed_dict={
                         self.input_data: texts_batch,
                         self.targets: summaries_batch,
@@ -356,41 +351,23 @@ class Seq2Seq(object):
                         self.keep_prob: self.keep_probability,
                         self.text_length: texts_lengths,
                     })
-                
-                batch_loss_validate += batch_loss
-                update_loss_validate += batch_loss
+
                 end_time = time.time()
                 batch_time = end_time - start_time
-                print(batch_loss_validate / self.display_step)
-                print('----')
-                print(batch_loss)
-                
-                if batch_i % self.display_step == 0 and batch_i > 0:
-                    print('Validate_Epoch:{:>3}/{}    Validate_Batch:{:>4}/{}    Validate_Loss:{:>6.3f}   Seconds:{:>4.2f}'
-                          .format(e,
-                                  self.epochs, 
-                                  batch_i, 
-                                  len(texts) // self.batch_size, 
-                                  batch_loss_validate / self.display_step, 
-                                  batch_time*self.display_step))
-                    batch_loss_validate = 0
-                
-                if batch_i % update_check == 0 and batch_i > 0:
-                    print("Average loss for this update:", round(update_loss_validate/update_check,3))
-                    summary_update_loss_validate.append(update_loss_validate)   
+
+                batch_preds = np.array(batch_preds)
+                batch_preds = np.squeeze(batch_preds, axis=0)
 
                 for target_sent, input_sent, pred in zip(summaries_batch, texts_batch, batch_preds):
 
                     pad = self.vocab_to_int["<pad>"]
+                    pred = list(pred)
+
+                    actual_sent = ' '.join([self.int_to_vocab[index] for index in input_sent if index != pad])
                     actual_title = ' '.join([self.int_to_vocab[index] for index in target_sent if index != pad])
                     predicted_title = ' '.join([self.int_to_vocab[index] for index in pred if index != pad])
 
-                    output_tuple = (input_sent, actual_title, predicted_title, 
-                                    batch_loss_validate / self.display_step, round(update_loss_validate/update_check,3))
+                    output_tuple = (actual_sent, actual_title, predicted_title)
                     output_tuple_data.append(output_tuple)
-                    
-                    #print('Actual Title:', actual_title)
-                    #print('Prediction:', predicted_title + '\n')
-            
-            with open(os.path.join(os.path.dirname(self.checkpoint), 'data/output_data_summary_epoch_{}.txt'.format(e)), 'wb') as output:
-                pickle.dump(output_tuple_data, output)
+
+            Loading.save_pickle(os.path.join(os.path.dirname(self.checkpoint), 'data/output_data_inference_epoch_{}.txt'.format(e)), output_tuple_data)

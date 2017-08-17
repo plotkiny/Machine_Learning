@@ -3,8 +3,8 @@
 import os
 import sys
 import pandas as pd
-from src.main.data_processing import nlp
-from src.main.resources.load import Loading
+from main.resources import Loading
+from main.data_processing import nlp
 
 
 def main(configuration_file, output_directory):
@@ -13,7 +13,6 @@ def main(configuration_file, output_directory):
 
     configuration = Loading.read_json(configuration_file)['pipeline']
     data = Loading.read_data(configuration['input_data'])
-    data = data[:100]
 
     pre_processing = nlp.PreProcessing(configuration)
     post_processing = nlp.PostProcessing(configuration)
@@ -22,7 +21,7 @@ def main(configuration_file, output_directory):
     for sample in data:
         text_dictionary = {k:v for k,v in sample.items() if k not in configuration['remove_keys']}   #remove unneeded key:value items
         for k,v in text_dictionary.items():
-            text = pre_processing.cleaning_text(v)
+            text = pre_processing.cleaning_text(k,v)
             text_dictionary[k] = text
         processed_li.append(text_dictionary)
 
@@ -68,5 +67,5 @@ def main(configuration_file, output_directory):
 
     processed_data_with_padding = nlp.remove_reviews_and_set_padding(processed_data, count_dataframe, word_to_ind, threshold = .10)
     Loading.save_pickle(os.path.join(output_directory, configuration['processed_data']), processed_data_with_padding)
-    sys.stderr.write('The processed data was saved to {} '.format(output_directory))
+    sys.stderr.write('The processed data was saved to {} \n '.format(output_directory))
 
