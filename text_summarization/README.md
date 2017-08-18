@@ -9,12 +9,12 @@
 
 ---
 
-##About <a name="about"></a>
+## About <a name="about"></a>
 >Generate a headline/title prediction from descriptive text. The title will be a concise summary of the original input text. The pipeline consists of upstream natural language processing steps, and subsequently, a downstream Seq2Seq w/attention bidirectional neural network model for prediction. Parameters for both the NLP and model are configurable.
 
 ---
 
-##Data <a name="data"></a>
+## Data <a name="data"></a>
 
 > Input data for running the NLP should take on the form of a list of dictionaries. What you're trying to summarize should be keyed as "content" and the target as "title."
 
@@ -25,7 +25,7 @@
 
     [{"content":[567,124,1210,55, 92], "title":[452, 95, 789] , ... , {"content":[5423,1234,156, 929], "title":[11,99,34]}]
 
-##Installation <a name="installation"></a>
+## Installation <a name="installation"></a>
 >General Requirements:
 >
 >* Clone the repo: git clone git@github.com:plotkiny/Deep-Learning.git
@@ -63,7 +63,7 @@
 
 ---
 
-##Usage <a name="usage"></a>
+## Usage <a name="usage"></a>
 >The command-line arguments should be run from the src (root) directory
 
 
@@ -81,7 +81,7 @@ python ./main/run.py -p -con main/resources/configuration.txt -out /path_to_outp
 ```
 ---
 
-##Links <a name="links"></a>
+## Links <a name="links"></a>
 
 `To learn more about LSTM networks:` http://colah.github.io/posts/2015-08-Understanding-LSTMs/
 
