@@ -1,0 +1,1 @@
+from main.data_processing import nlp
