@@ -219,7 +219,7 @@ class Seq2Seq(object):
         print('Saving model at {}'.format(save_path))
         if hasattr(self, 'training_variables'):
             var_list = self.training_variables
-        saver = tf.train.Saver(var_list, write_version = saver_pb2.SaverDef.V1)
+        saver = tf.train.Saver(var_list)
         saver.save(sess, save_path, write_meta_graph=True)
 
     def restore(self, sess, var_list=None, ckpt_path=None):
@@ -264,7 +264,7 @@ class Seq2Seq(object):
         update_check = (len(summaries)//self.batch_size//self.per_epoch)-1 
         
         for e in tqdm(range(self.epochs)):
-            
+
             update_loss_train = 0
             batch_loss_train = 0
             output_tuple_data = []
@@ -273,7 +273,7 @@ class Seq2Seq(object):
                 self.get_batches(texts, summaries)):
 
                 start_time = time.time()
-                
+
                 # Evaluate 3 ops in the graph
                 # => valid_predictions, loss, training_op(optimzier)
                 batch_preds, batch_loss, _ = sess.run(

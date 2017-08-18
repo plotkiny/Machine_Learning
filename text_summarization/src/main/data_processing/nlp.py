@@ -14,7 +14,6 @@ from nltk.tokenize import sent_tokenize
 from nltk.tokenize import word_tokenize
 from main.resources.english_contractions import Contractions
 
-
 class PreProcessing(object):
 
     def __init__(self, configuration):
@@ -74,7 +73,6 @@ class PreProcessing(object):
         list_of_tags = [li + '<eos>' for li in list_of_tags] #add end of sentence tag to the end of each string
         list_of_tags = ' '.join(list_of_tags).split() #ouptut is a list of strings --> join into one sentence and split on whitespace (getting rid of double white space)
         list_of_tags = ' '.join(list_of_tags)
-
         return list_of_tags
 
     def end_of_sentence(self, text):

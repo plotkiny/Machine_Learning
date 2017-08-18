@@ -30,9 +30,9 @@ class CreatePipeline(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line arguments for running text summarization')
-    parser.add_argument('-con', '--config', required=True, help="Jsoon dictionary configuration file")
+    parser.add_argument('-con', '--config', required=True, help="Json dictionary configuration file")
     parser.add_argument('-out', '--output', required=True, help='Specify the output file path')
-    parser.add_argument('-a','--all', action='store_true', help='Run both NLP text pre-processing and Seq2Seq model')
+    parser.add_argument('-a','--all', action='store_true', help='Run both NLP text pre-processing and Seq2Seq model training ')
     parser.add_argument('-pre', '--pre_process', action='store_true', help="Perform NLP text pre-processing")
     parser.add_argument('-t', '--train', action='store_true', help='Train the Seq2Seq neural network model on processed data.')
     parser.add_argument('-p','--predict', action='store_true', help='Predict sentences using a trained Seq2Seq model.')

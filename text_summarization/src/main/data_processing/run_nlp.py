@@ -32,10 +32,10 @@ def main(configuration_file, output_directory):
 
     assert (embed_matrix.shape == (len(word_to_ind), configuration['embed_dim']))
 
-    Loading.save_pickle(os.path.join(output_directory, configuration['word_frequency_filename']), counter_dictionary)
-    Loading.save_pickle(os.path.join(output_directory, configuration['embed_matrix_filename']), embed_matrix)
-    Loading.save_pickle(os.path.join(output_directory, configuration['word_to_ind_filename']), word_to_ind)
-    Loading.save_pickle(os.path.join(output_directory, configuration['ind_to_word_filename']), ind_to_word)
+    Loading.save_pickle(os.path.join(output_directory, configuration['word_frequency']), counter_dictionary)
+    Loading.save_pickle(os.path.join(output_directory, configuration['embed_matrix']), embed_matrix)
+    Loading.save_pickle(os.path.join(output_directory, configuration['word_to_ind']), word_to_ind)
+    Loading.save_pickle(os.path.join(output_directory, configuration['ind_to_word']), ind_to_word)
 
     #converting all words to integers
     #calculating the distribution of lengths for each field

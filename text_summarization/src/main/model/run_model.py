@@ -21,7 +21,6 @@ def main(configuration_file, output_directory, type):
         vocab_to_int = Loading.load_pickle(os.path.join(output_directory, configuration['word_to_ind']))
         int_to_vocab = Loading.load_pickle(os.path.join(output_directory, configuration['ind_to_word']))
         word_embedding_matrix = Loading.load_pickle(os.path.join(output_directory, configuration['embed_matrix']))
-
     except OSError:
         print('One of the files is missing')
 
@@ -31,7 +30,7 @@ def main(configuration_file, output_directory, type):
 
     #intitial split into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(sorted_texts, sorted_summaries,
-                                                        test_size=0.20, random_state=11)
+                                                        test_size=float(configuration['train_test_split']), random_state=configuration['random_state'])
 
     tf.reset_default_graph()
 
@@ -44,7 +43,6 @@ def main(configuration_file, output_directory, type):
             loss_history = model.train(sess, data, from_scratch=True,
                                        load_ckpt= model.checkpoint,
                                        save_path=model.checkpoint)
-
 
     elif type == 'predict':
 
