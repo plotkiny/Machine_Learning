@@ -2,11 +2,10 @@
 
 ## Table of contents
 1. [About](#about)
-2. [Features](#features)
-3. [Data](#data)
-4. [Installation](#installation)
-5. [Usage](#usage)
-6. [Links](#links)
+2. [Data](#data)
+3. [Installation](#installation)
+4. [Usage](#usage)
+5. [Links](#links)
 
 ---
 
@@ -30,7 +29,6 @@
 >General Requirements:
 >
 >* Clone the repo: git clone git@github.com:plotkiny/Deep-Learning.git
->* Make sure to have the following python packages **installed** in your environment:
 >* Download Anaconda for your operating system
 
 >Create and activate Anaconda environment:
