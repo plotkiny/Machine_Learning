@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
-from tensorflow.core.protobuf import saver_pb2
 from main.resources import Loading
 from sklearn.model_selection import KFold
 from tqdm import tqdm
@@ -92,7 +91,7 @@ class Seq2Seq(object):
         dynamic_batch_size = tf.shape(self.input_data)[0]
 
         #create the decoder embeddings and cell
-        #the decoder in
+        #embedding matrix [vocab_size, embedding_dim] , dec_input [batch_size, time_stamp]
         dec_input = self.process_encoding_input()
         dec_embed_input = tf.nn.embedding_lookup(self.embeddings, dec_input)
         dec_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
@@ -131,10 +130,11 @@ class Seq2Seq(object):
 
             training_decoder = tf.contrib.seq2seq.BasicDecoder(
                 cell=dec_cell, 
-                helper=training_helper, 
+                helper=training_helper,
                 initial_state=initial_state, 
                 output_layer=output_layer) 
 
+            #output and state at each time-step
             self.train_dec_outputs, self.train_dec_last_state = tf.contrib.seq2seq.dynamic_decode(
                 training_decoder, 
                 output_time_major=False,
