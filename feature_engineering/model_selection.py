@@ -5,10 +5,9 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from gensim.models.word2vec import LineSentence
 from gensim.corpora import Dictionary
 from gensim.models.ldamulticore import LdaMulticore
-from feature_engineering.loading_data import save_data
+from feature_engineering.loading_data import saveData
 from feature_engineering.nlp_methods import sentencePunctuationParser
 from feature_engineering.nlp_methods import sentenceStopWordsRemoval
-
 
 
 def stratifiedSplit(df, response_var, n_splits=2, test_size=.15, random_state=22):
@@ -47,7 +46,7 @@ class lda_TopicModeling():
 
         processed_training_data = self.df.apply(lambda r: sentenceStopWordsRemoval(sentencePunctuationParser(r), True))
         for review in processed_training_data:
-            save_data(review, file_path)
+            saveData(review, file_path)
 
     def loadLineSentence(self, file_path):
 
@@ -136,3 +135,5 @@ class lda_TopicModeling():
         review_lda = self.lda[review_bow] #making a lda representation
         review_lda = sorted(review_lda,key=lambda t:( t[0], -t[1]))
         return review_lda[:topics_returned] if topics_returned < len(review_lda) else review_lda
+
+

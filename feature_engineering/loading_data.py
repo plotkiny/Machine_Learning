@@ -30,7 +30,7 @@ def loadCSVToPandas(file, sep=';', time_col = None):
     except IOError:
         print('The file was not found')
 
-def load_json_to_pandas(file):
+def loadJsonToPandas(file):
 
     """
     Method for loading json data into a pandas dataframe. Each line of the file is a json dictionary.
@@ -41,7 +41,7 @@ def load_json_to_pandas(file):
     except IOError:
         print('The file was not found')
 
-def read_data(file):
+def readData(file):
     li=[]
     with open(file) as f:
         for line in f:
@@ -49,17 +49,15 @@ def read_data(file):
             li.append(j)
     return li
 
-def save_data(df,path):
+def saveData(df,path):
     with open(path, 'a') as f:
         f.write(df + '\n')
 
-def save_pickle(file, data):
+def savePickle(file, data):
     with open(file, 'wb') as output:
         pickle.dump(data, output)
 
-def load_pickle(file):
+def loadPickle(file):
     with open(file, 'rb') as input:
         return pickle.load(input)
-
-
 

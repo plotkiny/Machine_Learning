@@ -75,9 +75,7 @@ def handlingCategoricalNominal(df, column=None, dummy=False):
 
     """
     Method for dealing with nominal categorical variables. Dummy encoding converts multiple columns of only type 'str'
-
     """
-
     if dummy:
         return pd.get_dummies(df)
     else:
@@ -92,7 +90,6 @@ def getColumns(df, start, stop=None):
     """
     Subsetting columns in a pandas dataframe.
     """
-
     if not stop:
         stop = df.shape[1]
     stop = getColumnIndex(df,stop)
@@ -103,16 +100,13 @@ def getColumns(df, start, stop=None):
 def timeParser(df, col, str_method):
 
     """
-    -method: time_parser
-    -description:
-        -uses: parse time date in the format 2014-09-18 11:47:45 using any parse method
-        -inputs:
-            1. name of the pandas dataframe
-            2. string of the name of the date column
-            3. string of the method you want the parser to get
-        -output: pd.Setries the length of the dataframe rows
-        -getattr gets the method of the parsed object. the method is specified as an input parameter
-    -dependencies: from dateutil.parser import parse
+    Method used to parse time date in the format 2014-09-18 11:47:45 using any parse method
+    Inputs:
+        1. name of the pandas dataframe
+        2. string of the name of the date column
+        3. string of the method you want the parser to get
+    Output: pd.Setries the length of the dataframe rows
+    Dependencies: from dateutil.parser import parse
     """
 
     def time_parser_helper(col, str_method):
@@ -126,7 +120,6 @@ def standardizeNumpyColumns(X, col_index_list, params=None):
     Method using the mlxtend python package to standardizing select columns in 2-D numpy array
     Input: Numpy array: (rows = samples, columns = features) + col_index_list: list of columns to standardize
     """
-
     if not params:
         X_std, params =  standardize(X, columns=col_index_list, return_params=True)
         X[:, col_index_list] = X_std
