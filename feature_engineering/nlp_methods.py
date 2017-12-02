@@ -12,7 +12,7 @@ def wordPunctuationParser(token):
     return token.is_punct or token.is_space
 
 
-def sentencePunctuationParser(sent, join=False):
+def sentencePunctuationParser(sent, convert_to_string=False):
 
     """
     Method for sentences: eliminate pure tokens that are either punctuation or whitespace
@@ -21,20 +21,20 @@ def sentencePunctuationParser(sent, join=False):
     """
 
     li = [token.lemma_ for token in sent if not any([token.is_punct, token.is_space])]
-    if not join:
+    if not convert_to_string:
         return li
-    return ' '.join(li)
+    return ' '.convert_to_string(li)
 
-def sentenceStopWordsRemoval(sent, join=False):
+def sentenceStopWordsRemoval(sent, convert_to_string=False):
 
     """
     Eliminate stop words
     """
 
     li = [token for token in sent if token not in spacy.en.language_data.STOP_WORDS]
-    if not join:
+    if not convert_to_string:
         return li
-    return ' '.join(li)
+    return ' '.convert_to_string(li)
 
 
 def phraseModelingSentenceGenerator(df, file_path):
