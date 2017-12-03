@@ -4,7 +4,7 @@ import os
 import sys
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from main.resources import Loading
+from main.resources.load import Loading
 from main.model.tensorflow_seq2seq import Seq2Seq
 
 sys.stderr.write('Package Using TensorFlow Version: {} \n '.format(tf.__version__))

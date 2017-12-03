@@ -6,11 +6,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
-from main.resources import Loading
+from main.model.seq2seq_functions import _get_initial_cell_state
+from main.model.seq2seq_functions import _make_gaussian_state_initializer
+from main.model.seq2seq_functions import _make_variable_state_initializer
+from main.resources.load import Loading
 from sklearn.model_selection import KFold
 from tqdm import tqdm
-
-
 
 class Seq2Seq(object):
     
@@ -54,6 +55,7 @@ class Seq2Seq(object):
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.max_summary_length = tf.reduce_max(self.summary_length, name='max_dec_len')
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
+        self.deterministic = tf.constant(False)
     
     def make_cell(self, rnn_size, keep_prob):
         
@@ -72,12 +74,17 @@ class Seq2Seq(object):
 
     ##TODO: need to define rnn_inputs beforehand..
     def add_encoder(self):
-        
         enc_embed_input = tf.nn.embedding_lookup(self.embeddings, self.input_data)
         forward_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
         backward_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
+
+        initializer = _make_gaussian_state_initializer(_make_variable_state_initializer(), self.deterministic)
+        states = _get_initial_cell_state(forward_cell, initializer, self.batch_size, tf.float32)
+
+        #self.enc_state is a tuple (output_state_fw, output_state_bw)
         enc_output, self.enc_state = tf.nn.bidirectional_dynamic_rnn(forward_cell, backward_cell, enc_embed_input,
-                                                                     self.text_length, dtype=tf.float32)
+                                                                     self.text_length, dtype=tf.float32,
+                                                                     initial_state_fw=states, initial_state_bw=states)
         
         #cocatenate the forward and backward outputs
         self.enc_output = tf.concat(enc_output,2)
@@ -209,7 +216,14 @@ class Seq2Seq(object):
 
             yield summaries_batch, texts_batch, pad_summaries_lengths, pad_texts_lengths
             
-    def add_training_optimizer(self):   
+    def add_training_optimizer(self):
+
+        """
+        This method simply combines calls compute_gradients() and apply_gradients() in place of minimize() if you want
+        to process the gradient before applying them
+
+        :return: Apply gradients to variables
+        """
         optimizer = self.optimizer(self.learning_rate, name='training_op')  #gradient clipping implemented
         gradients = optimizer.compute_gradients(self.batch_loss)
         capped_gradients = [(tf.clip_by_norm(grad, 5.), var) for grad, var in gradients if grad is not None]
@@ -268,7 +282,7 @@ class Seq2Seq(object):
             update_loss_train = 0
             batch_loss_train = 0
             output_tuple_data = []
-            
+
             for batch_i, (summaries_batch, texts_batch, summaries_lengths, texts_lengths) in enumerate(
                 self.get_batches(texts, summaries)):
 
