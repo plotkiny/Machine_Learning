@@ -73,7 +73,10 @@ Contractions = {
     "who's": "who is",
     "won't": "will not",
     "wouldn't": "would not",
+    "would've": "would have",
     "you'd": "you would",
     "you'll": "you will",
+    "y'all": "you all",
+    "you've": "you have",
     "you're": "you are"
 }

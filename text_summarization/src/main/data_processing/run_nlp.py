@@ -3,7 +3,7 @@
 import os
 import sys
 import pandas as pd
-from main.resources import Loading
+from main.resources.load import Loading
 from main.data_processing import nlp
 
 
@@ -25,7 +25,7 @@ def main(configuration_file, output_directory):
             text_dictionary[k] = text
         processed_li.append(text_dictionary)
 
-    counter_dictionary = post_processing.counter(processed_li)
+    counter_dictionary = post_processing.count_words(processed_li)
     embedding_list = post_processing.get_embeddings()
     word_to_ind, ind_to_word, embed_matrix, words_without_embeddings = post_processing.prune_and_embed(counter_dictionary,
                                                                                                    embedding_list)
@@ -33,6 +33,7 @@ def main(configuration_file, output_directory):
     assert (embed_matrix.shape == (len(word_to_ind), configuration['embed_dim']))
 
     Loading.save_pickle(os.path.join(output_directory, configuration['word_frequency']), counter_dictionary)
+    Loading.save_pickle(os.path.join(output_directory, 'words_without_embedding'), words_without_embeddings)
     Loading.save_pickle(os.path.join(output_directory, configuration['embed_matrix']), embed_matrix)
     Loading.save_pickle(os.path.join(output_directory, configuration['word_to_ind']), word_to_ind)
     Loading.save_pickle(os.path.join(output_directory, configuration['ind_to_word']), ind_to_word)
