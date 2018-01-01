@@ -95,32 +95,30 @@ class Seq2Seq(object):
         end_token = self.vocab_to_int['<eos>']
 
         #dynamic batch size
-        dynamic_batch_size = tf.shape(self.input_data)[0]
+        self.dynamic_batch_size = tf.shape(self.input_data)[0]
 
         #create the decoder embeddings and cell
         #embedding matrix [vocab_size, embedding_dim] , dec_input [batch_size, time_stamp]
         dec_input = self.process_encoding_input()
-        dec_embed_input = tf.nn.embedding_lookup(self.embeddings, dec_input)
+        dec_embed_input = tf.nn.embedding_lookup(self.embeddings, dec_input) #dec_embed_input has a shape of (batch_size, time_stamps, embed_dim=300)
         dec_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
 
         #wrapping decoder with attention
-        ##########
-        attn_mech = tf.contrib.seq2seq.BahdanauAttention(
-            num_units=self.attn_size,
-            memory=self.enc_output, 
-            memory_sequence_length=self.text_length, 
-            normalize=False,
-            name='BahdanauAttention')
+        attention_states = self.enc_output
 
-        dec_cell = tf.contrib.seq2seq.DynamicAttentionWrapper(
-            cell=dec_cell, 
-            attention_mechanism=attn_mech,
-            attention_size=self.attn_size)
+        #create an attention mechanism
+        attn_mech = tf.contrib.seq2seq.LuongAttention(
+            num_units= self.attn_size,
+            memory = attention_states,
+            memory_sequence_length=self.text_length)
 
-        initial_state = tf.contrib.seq2seq.DynamicAttentionWrapperState(
-            cell_state=self.enc_state[0],
-            attention=_zero_state_tensors(self.attn_size, dynamic_batch_size, tf.float32))
-        ##########
+        dec_cell = tf.contrib.seq2seq.AttentionWrapper(
+            cell= dec_cell,
+            attention_mechanism = attn_mech,
+            attention_layer_size=self.attn_size)
+
+        attention_zero = dec_cell.zero_state(dtype=tf.float32, batch_size=self.dynamic_batch_size)
+        initial_state = attention_zero.clone(cell_state=self.enc_state[0])
 
         #dense final layer
         output_layer = Dense(
@@ -142,7 +140,7 @@ class Seq2Seq(object):
                 output_layer=output_layer) 
 
             #output and state at each time-step
-            self.train_dec_outputs, self.train_dec_last_state = tf.contrib.seq2seq.dynamic_decode(
+            self.train_dec_outputs, self.train_dec_last_state, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(
                 training_decoder, 
                 output_time_major=False,
                 impute_finished=True, 
@@ -173,7 +171,7 @@ class Seq2Seq(object):
 
         elif self.mode == 'inference':
 
-            start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [dynamic_batch_size], name='start_tokens')
+            start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [self.dynamic_batch_size], name='start_tokens')
 
             inference_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
                 embedding=self.embeddings, 
@@ -186,7 +184,7 @@ class Seq2Seq(object):
                 initial_state=initial_state, 
                 output_layer=output_layer)
 
-            self.infer_dec_outputs, self.infer_dec_last_state = tf.contrib.seq2seq.dynamic_decode(
+            self.infer_dec_outputs, self.infer_dec_last_state, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(
                 inference_decoder, 
                 output_time_major=False,
                 impute_finished=True, 

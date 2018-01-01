@@ -40,8 +40,7 @@ def main(configuration_file, output_directory, type):
             model = Seq2Seq(configuration, word_embedding_matrix, vocab_to_int, int_to_vocab, 'training')
             model.build()
             data = (X_train, y_train)
-            loss_history = model.train(sess, data, from_scratch=True,
-                                       load_ckpt= model.checkpoint,
+            loss_history = model.train(sess, data, from_scratch=True, load_ckpt= model.checkpoint,
                                        save_path=model.checkpoint)
 
     elif type == 'predict':
