@@ -196,6 +196,8 @@ class Seq2Seq(object):
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
     def get_batches(self, sorted_texts, sorted_summaries):
+
+        pad = self.vocab_to_int["<pad>"]
     
         #batch summaries, texts, and the lengths of their sentences together"""
         for batch_i in range(0, len(sorted_texts)// self.batch_size):
@@ -206,11 +208,11 @@ class Seq2Seq(object):
             # Need the lengths for the _lengths parameters
             pad_summaries_lengths = []
             for summary in summaries_batch:
-                pad_summaries_lengths.append(len(summary))
+                pad_summaries_lengths.append(np.count_nonzero(summary != pad))
 
             pad_texts_lengths = []
             for text in texts_batch:
-                pad_texts_lengths.append(len(text))
+                pad_texts_lengths.append(np.count_nonzero(text != pad))
 
             yield summaries_batch, texts_batch, pad_summaries_lengths, pad_texts_lengths
             
