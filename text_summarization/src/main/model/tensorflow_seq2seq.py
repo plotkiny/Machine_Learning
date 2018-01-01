@@ -30,10 +30,11 @@ class Seq2Seq(object):
         self.display_step = configuration['display_step']
         self.epochs = configuration['epochs']
         self.keep_probability = configuration['keep_probability']
-        self.learning_rate = configuration['learning_rate']
+        self.starter_learning_rate = configuration['learning_rate']
         self.learning_rate_decay = configuration['learning_rate_decay']
         self.num_layers = configuration['num_layers']
         self.min_learning_rate = configuration['min_learning_rate']
+        self.adaptive_optimizer = configuration['adaptive_optimizer']
         self.per_epoch = configuration['per_epoch']
         self.attn_size = configuration['attention_size']
         self.rnn_size = configuration['rnn_size']
@@ -41,8 +42,8 @@ class Seq2Seq(object):
         self.stop_early = configuration['stop_early']
         self.fold = configuration['fold']
         self.vocab_size = len(self.vocab_to_int)+1
-        self.optimizer = tf.train.AdamOptimizer
-        
+        self.optimizer = tf.train.AdamOptimizer  #self.optimizer = tf.train.GradientDescentOptimizer
+
         #NEED TO DO!!!!! for the encoder
         #self.rnn_inputs
 
@@ -50,13 +51,12 @@ class Seq2Seq(object):
         
         self.input_data = tf.placeholder(tf.int32, [None, None], name='input')
         self.targets = tf.placeholder(tf.int32, [None, None], name='targets')
-        self.lr = tf.placeholder(tf.float32, name='learning_rate')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.max_summary_length = tf.reduce_max(self.summary_length, name='max_dec_len')
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
         self.deterministic = tf.constant(False)
-    
+
     def make_cell(self, rnn_size, keep_prob):
         
         cell = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
@@ -222,10 +222,23 @@ class Seq2Seq(object):
 
         :return: Apply gradients to variables
         """
+
+        if not self.adaptive_optimizer == "True":
+            self.global_step = tf.Variable(0, trainable=False)
+            self.learning_rate = tf.train.exponential_decay(self.starter_learning_rate, self.global_step*self.dynamic_batch_size,
+                                                            100000, self.learning_rate_decay, staircase=True)
+        else:
+            self.learning_rate = self.starter_learning_rate
+
         optimizer = self.optimizer(self.learning_rate, name='training_op')  #gradient clipping implemented
         gradients = optimizer.compute_gradients(self.batch_loss)
         capped_gradients = [(tf.clip_by_norm(grad, 5.), var) for grad, var in gradients if grad is not None]
-        self.training_op = optimizer.apply_gradients(capped_gradients)
+
+        if not self.adaptive_optimizer == "True":
+            self.training_op = optimizer.apply_gradients(capped_gradients, global_step=self.global_step)
+        else:
+            self.training_op = optimizer.apply_gradients(capped_gradients)
+
 
     def save(self, sess, var_list=None, save_path=None):
         print('Saving model at {}'.format(save_path))
@@ -289,11 +302,11 @@ class Seq2Seq(object):
                 # Evaluate 3 ops in the graph
                 # => valid_predictions, loss, training_op(optimzier)
                 batch_preds, batch_loss, _ = sess.run(
+
                     [self.train_predictions, self.batch_loss, self.training_op],
                     feed_dict={
                         self.input_data: texts_batch,
                         self.targets: summaries_batch,
-                        self.lr: self.learning_rate,
                         self.summary_length: summaries_lengths,
                         self.keep_prob: self.keep_probability,
                         self.text_length: texts_lengths,
@@ -358,7 +371,6 @@ class Seq2Seq(object):
                     feed_dict={
                         self.input_data: texts_batch,
                         self.targets: summaries_batch,
-                        self.lr: self.learning_rate,
                         self.summary_length: summaries_lengths,
                         self.keep_prob: self.keep_probability,
                         self.text_length: texts_lengths,
