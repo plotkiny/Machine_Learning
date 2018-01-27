@@ -40,6 +40,8 @@
     "stop_early": 0,
     "stop": 3,
     "per_epoch": 3,
-    "fold": 3
+    "fold": 3,
+    "beam_search": "True",
+    "beam_length": 10
   }
 }
