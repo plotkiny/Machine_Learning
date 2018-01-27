@@ -1,7 +1,6 @@
 #!usr/bin/env/python
 
-import os
-import time
+import os, time
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
@@ -38,6 +37,8 @@ class Seq2Seq(object):
         self.stop_early = configuration['stop_early']
         self.fold = configuration['fold']
         self.vocab_size = len(self.vocab_to_int)+1
+        self.beam_search = True
+        self.beam_length = configuration['beam_length']
         self.optimizer = tf.train.AdamOptimizer  #self.optimizer = tf.train.GradientDescentOptimizer
 
         #NEED TO DO!!!!! for the encoder
@@ -156,33 +157,59 @@ class Seq2Seq(object):
             tf.summary.scalar('epoch_loss', tf.reduce_mean(self.batch_loss))
 
             #prediction sample for validation
-            self.train_predictions = tf.identity(self.train_dec_outputs.sample_id, name='valid_preds')
+            #self.train_predictions = tf.identity(self.train_dec_outputs.sample_id, name='training_ids')
+            self.train_predictions = tf.expand_dims(self.train_dec_outputs.sample_id, -1, name='training_ids')
 
             #get training variables
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
         elif self.mode == 'inference':
 
-            start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [self.dynamic_batch_size], name='start_tokens')
+            if not self.beam_search:
 
-            inference_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-                embedding=self.embeddings, 
-                start_tokens=start_tokens, 
-                end_token=end_token)
+                helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                    embedding=self.embeddings,
+                    start_tokens=start_tokens,
+                    end_token=end_token)
 
-            inference_decoder = tf.contrib.seq2seq.BasicDecoder(
-                cell=dec_cell, 
-                helper=inference_helper, 
-                initial_state=initial_state, 
-                output_layer=output_layer)
+                decoder = tf.contrib.seq2seq.BasicDecoder(
+                    cell=dec_cell,
+                    helper=helper,
+                    initial_state=decoder_initial_state,
+                    output_layer=output_layer)
+            else:
+
+                decoder = tf.contrib.seq2seq.BeamSearchDecoder(
+                    cell=dec_cell,
+                    embedding=self.embeddings,
+                    start_tokens=start_tokens,
+                    end_token=end_token,
+                    initial_state=decoder_initial_state,
+                    beam_width=self.beam_length,
+                    output_layer=output_layer,
+                    length_penalty_weight=0.0)
+
+            #def embed_and_input_proj(inputs):
+               # return input_layer(tf.nn.embedding_lookup(self.embeddings, inputs))
 
             self.infer_dec_outputs, self.infer_dec_last_state, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(
-                inference_decoder, 
+                decoder,
                 output_time_major=False,
-                impute_finished=True, 
+                impute_finished=False,
                 maximum_iterations=self.max_summary_length)
 
-            self.valid_predictions = tf.identity(self.infer_dec_outputs.sample_id, name='infer_preds')
+            # logits: [batch_size x max_dec_len x dec_vocab_size+1]
+            #logits = self.infer_dec_outputs.predicted_ids
+
+            if not self.beam_search:
+                logits = tf.identity(self.infer_dec_outputs.rnn_output, name='prediction_logits')
+                self.valid_predictions = tf.identity(self.infer_dec_outputs.sample_id, name='prediction_ids')
+            else:
+                logits = tf.no_op()
+                self.valid_predictions = tf.identity(self.infer_dec_outputs.predicted_ids, name="prediction_ids")
+
+            #loss function
+            #self.batch_loss = tf.contrib.seq2seq.sequence_loss(targets=self.targets, weights=masks, logits=logits)
 
             #get training variables
             #self.training_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -376,6 +403,9 @@ class Seq2Seq(object):
                 batch_preds = np.array(batch_preds)
                 batch_preds = np.squeeze(batch_preds, axis=0)
 
+                #batch_preds shape: (64, 5, 10) [batch_size, time, beam_width]
+                batch_preds = batch_preds.transpose([2, 0, 1])[0]
+
                 for target_sent, input_sent, pred in zip(summaries_batch, texts_batch, batch_preds):
 
                     pad = self.vocab_to_int["<pad>"]
@@ -383,7 +413,11 @@ class Seq2Seq(object):
 
                     actual_sent = ' '.join([self.int_to_vocab[index] for index in input_sent if index != pad])
                     actual_title = ' '.join([self.int_to_vocab[index] for index in target_sent if index != pad])
-                    predicted_title = ' '.join([self.int_to_vocab[index] for index in pred if index != pad])
+
+                    if not self.beam_search:
+                        predicted_title = ' '.join([self.int_to_vocab[index] for index in pred if index != pad])  #beam search output in [batch_size, time, beam_width] shape.
+                    else:
+                        predicted_title = ' '.join([self.int_to_vocab[index] for index in pred if index != pad])  #beam search output in [batch_size, time, beam_width] shape.
 
                     output_tuple = (actual_sent, actual_title, predicted_title)
                     output_tuple_data.append(output_tuple)
