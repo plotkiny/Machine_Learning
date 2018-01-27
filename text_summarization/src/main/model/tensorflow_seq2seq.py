@@ -96,47 +96,69 @@ class Seq2Seq(object):
         dec_embed_input = tf.nn.embedding_lookup(self.embeddings, dec_input) #dec_embed_input has a shape of (batch_size, time_stamps, embed_dim=300)
         dec_cell = tf.contrib.rnn.MultiRNNCell([self.make_cell(self.rnn_size, self.keep_probability) for _ in range(self.num_layers)])
 
-        #wrapping decoder with attention
-        attention_states = self.enc_output
+        if self.mode == 'inference' and self.beam_search:
+            encoder_outputs = tf.contrib.seq2seq.tile_batch(self.enc_output, multiplier=self.beam_length)
+            sequence_length = tf.contrib.seq2seq.tile_batch(self.text_length, multiplier=self.beam_length)
+            encoder_final_state = tf.contrib.seq2seq.tile_batch(self.enc_state[0], multiplier=self.beam_length)
+            batch = self.dynamic_batch_size*self.beam_length
+        else:
+            encoder_outputs = self.enc_output
+            sequence_length = self.text_length
+            encoder_final_state = self.enc_state[0]
+            batch = self.dynamic_batch_size
 
-        #create an attention mechanism
+        #create an attention mechanism, scaled luong attention
+        #returns tensor [batch_size, alignment_size]
         attn_mech = tf.contrib.seq2seq.LuongAttention(
             num_units= self.attn_size,
-            memory = attention_states,
-            memory_sequence_length=self.text_length)
+            memory = encoder_outputs,
+            memory_sequence_length=sequence_length,
+            scale=True)
 
         dec_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell= dec_cell,
             attention_mechanism = attn_mech,
             attention_layer_size=self.attn_size)
 
-        attention_zero = dec_cell.zero_state(dtype=tf.float32, batch_size=self.dynamic_batch_size)
-        initial_state = attention_zero.clone(cell_state=self.enc_state[0])
+        # Input projection layer to feed embedded inputs to the cell
+        # ** Essential when use_residual=True to match input/output dims
+        input_layer = layers_core.Dense(self.vocab_size,
+                                        dtype=tf.float32,
+                                        name='input_projection')
 
         #dense final layer
-        output_layer = Dense(
-            self.vocab_size, 
-            kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
+        output_layer = layers_core.Dense(self.vocab_size,
+                                         use_bias=False,
+                                         kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1),
+                                         name='output_projection')
+
+        start_tokens = tf.fill([self.dynamic_batch_size], start_token)
+        attention_zero = dec_cell.zero_state(dtype=tf.float32, batch_size=batch)
+        decoder_initial_state = attention_zero.clone(cell_state=encoder_final_state)
+
+        # Create the weights for sequence_loss
+        masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='masks')
 
         if self.mode == 'training':
 
-            #creating the training logits
-            training_helper = tf.contrib.seq2seq.TrainingHelper(
-                inputs=dec_embed_input, 
+            helper = tf.contrib.seq2seq.TrainingHelper(  #creating the training logits
+                inputs=dec_embed_input,
                 sequence_length=self.summary_length,
                 time_major=False)
 
-            training_decoder = tf.contrib.seq2seq.BasicDecoder(
-                cell=dec_cell, 
-                helper=training_helper,
-                initial_state=initial_state, 
-                output_layer=output_layer) 
+            decoder = tf.contrib.seq2seq.BasicDecoder(
+                cell=dec_cell,
+                helper=helper,
+                initial_state=decoder_initial_state,
+                output_layer=output_layer)
 
             #output and state at each time-step
+            #self.train_dec_outputs shape is (64, ?, 9138)
             self.train_dec_outputs, self.train_dec_last_state, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(
-                training_decoder, 
+                decoder,
                 output_time_major=False,
-                impute_finished=True, 
+                impute_finished=True,
+                swap_memory=True,
                 maximum_iterations=self.max_summary_length)
 
             # dec_outputs: collections.namedtuple(rnn_outputs, sample_id)
@@ -144,10 +166,7 @@ class Seq2Seq(object):
             # dec_outputs.sample_id [batch_size], tf.int32
 
             # logits: [batch_size x max_dec_len x dec_vocab_size+1]
-            logits = tf.identity(self.train_dec_outputs.rnn_output, 'train_logits')
-
-            # Create the weights for sequence_loss
-            masks = tf.sequence_mask(self.summary_length, self.max_summary_length, dtype=tf.float32, name='train_masks')
+            logits = tf.identity(self.train_dec_outputs.rnn_output, name='train_logits')
 
             #loss function
             self.batch_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.targets, 
