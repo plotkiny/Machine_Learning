@@ -28,3 +28,19 @@ class Loading():
     def load_pickle(file):
         with open(file, 'rb') as input:
             return pickle.load(input)
+
+
+def get_boolean(bool):
+    bool = bool.strip().lower()
+    if bool == "true":
+        return True
+    elif bool == "false":
+        return False
+    else:
+        TypeError("String needs to be of type True or False.")
+
+def check_string(str):
+    return None if str.lower() == "none" else str
+
+def get_join_dir(a,b):
+    return os.path.join(a,b)

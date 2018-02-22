@@ -4,7 +4,7 @@ import os, time
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
-from main.resources.load import Loading
+from main.resources.helper_function import Loading
 from sklearn.model_selection import KFold
 from tqdm import tqdm
 
