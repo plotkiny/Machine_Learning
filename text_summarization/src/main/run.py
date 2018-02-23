@@ -1,8 +1,8 @@
 #!usr/bin/env/python
 
 import argparse, sys
-from main.model import run_model
-from main.data_processing import run_nlp
+from main.data import run_nlp
+from main.model.tensorflow.models import run_model
 
 
 class CreatePipeline(object):

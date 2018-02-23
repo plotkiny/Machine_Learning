@@ -3,8 +3,8 @@
 import os
 import sys
 import pandas as pd
-from main.resources.load import Loading
-from main.data_processing import nlp
+from main.resources.helper_function import Loading
+from main.data import nlp
 
 
 def main(configuration_file, output_directory):
