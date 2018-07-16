@@ -45,10 +45,10 @@ class AttentionModel(BasicSeq2Seq):
     def _create_decoder_cell(self, enc_output, seq_length):
 
         dec_cell = tf.contrib.rnn.MultiRNNCell([
-            self._make_cell(self.params["rnn_size"]) for _ in range(self.params["num_layers"])])
+            self._make_cell(self.params["rnn.size"]) for _ in range(self.params["num.layers"])])
 
-        attn_type = self.params["attn_type"]
-        attn_size = self.params["attn_size"]
+        attn_type = self.params["attn.type"]
+        attn_size = self.params["attn.size"]
 
         attn_mech, attn_size = self._create_attention_mechanism(attn_type, attn_size, enc_output, seq_length)
 

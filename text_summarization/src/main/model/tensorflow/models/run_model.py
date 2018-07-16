@@ -18,18 +18,18 @@ def main(config_file, output_dir, type):
     assert (os.path.isdir(output_dir) == True)
 
     params = Loading.read_json(config_file)["model"]
-    processed_data = Loading.load_pickle(get_join_dir(output_dir, params["processed_data"]))
+    processed_data = Loading.load_pickle(get_join_dir(output_dir, params["processed.data"]))
     keys = ["content", "title"]
     sorted_texts, sorted_summaries = AttentionModel._get_text(keys, processed_data)
 
     #intitial split into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(sorted_texts, sorted_summaries,
-                                                        test_size=float(params['train_test_split']), random_state=params['random_state'])
+                                                        test_size=float(params['train.test.split']), random_state=params['random.state'])
 
     tf.reset_default_graph()
 
     with tf.Session() as sess:
-        if get_boolean(params["use_attn"]):
+        if get_boolean(params["use.attn"]):
             model = AttentionModel(params, type, output_dir)
         else:
             model = BasicSeq2Seq(params, type, output_dir)
@@ -38,10 +38,10 @@ def main(config_file, output_dir, type):
 
         if type == "train":
                 data = (X_train, y_train)
-                loss_history = model.train(sess, data, from_scratch=True, load_ckpt= model.checkpoint,
+                loss_history = model.train(sess, data, from_scratch=False, load_ckpt= model.checkpoint,
                                            save_path=model.checkpoint)
         elif type == "predict":
                 data = (X_test, y_test)
-                loss_history = model.inference(sess, data, params["checkpoint_dir"])
+                loss_history = model.inference(sess, data, params["checkpoint.dir"])
         else:
             ValueError("Please specify whether to 'train' or 'predict'")

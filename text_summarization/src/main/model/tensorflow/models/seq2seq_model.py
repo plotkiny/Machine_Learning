@@ -33,7 +33,7 @@ class BasicSeq2Seq(ModelBase):
 
     def _use_beam_search(self):
         """Returns true iff the model should perform beam search."""
-        return self.params["beam_length"] > 1
+        return self.params["beam.length"] > 1
 
     def _batch_size(self):
         """Returns the dynamic batch size for a batch of examples"""
@@ -41,21 +41,21 @@ class BasicSeq2Seq(ModelBase):
 
     def _make_cell(self, rnn_size):
         cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-        tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=self.params["dropout_input_keep_prob"],
-                                      output_keep_prob=self.params["dropout_output_keep_prob"])
+        tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=self.params["dropout.input.keep.prob"],
+                                      output_keep_prob=self.params["dropout.output.keep.prob"])
         return cell
 
     ##TODO: need to define rnn_inputs beforehand..
     def _add_encoder(self):
-        enc_embed_input = tf.nn.embedding_lookup(self.embed_matrix, self.input_data)
+        enc_embed_input = tf.nn.embedding_lookup(self.embed_matrix, self.input_data) # shape = [batch_size, time_stamp, embed_dim]
         encoder_class = self.encoder_class(self.params, self.mode, self.output_dir)
         EncoderOutput = encoder_class.encode(enc_embed_input, self.text_length)
         self.enc_output, self.enc_final_state, attention_values, attention_values_length = EncoderOutput
 
     def _process_encoding_input(self):
         # Remove the last word id from each batch and concat the <go> to the begining of each batch
-        ending = tf.strided_slice(self.targets, [0, 0], [self.params["batch_size"], -1], [1, 1])
-        dec_input = tf.concat([tf.fill([self.params["batch_size"], 1], self.word_to_ind['<go>']), ending], 1)
+        ending = tf.strided_slice(self.targets, [0, 0], [self.params["batch.size"], -1], [1, 1])
+        dec_input = tf.concat([tf.fill([self.params["batch.size"], 1], self.word_to_ind['<go>']), ending], 1)
         return dec_input
 
     def _create_decoder_input(self):
@@ -66,7 +66,7 @@ class BasicSeq2Seq(ModelBase):
         return dec_embed_input
 
     def _create_decoder_cell(self, enc_output, seq_length):
-        return tf.contrib.rnn.MultiRNNCell([self._make_cell(self.params["rnn_size"]) for _ in range(self.params["num_layers"])])
+        return tf.contrib.rnn.MultiRNNCell([self._make_cell(self.params["rnn.size"]) for _ in range(self.params["num.layers"])])
 
     #TODO: look into length_penalty_weight, choose_successors_fn
     def _get_beam_search_decoder(self, decoder):
@@ -80,8 +80,8 @@ class BasicSeq2Seq(ModelBase):
         """
 
         config = BeamSearchConfig(
-            beam_width=self.params["beam_length"],
-            length_penalty_weight=self.params["inference.beam_search.length_penalty_weight"],
+            beam_width=self.params["beam.length"],
+            length_penalty_weight=self.params["inference.beam.search.length.penalty.weight"],
             start_token=self.start_tokens,
             end_token=self.end_token,
             embed_matrix=self.embed_matrix,
@@ -97,11 +97,11 @@ class BasicSeq2Seq(ModelBase):
         self.start_tokens = tf.fill([dynamic_batch_size], self.word_to_ind['<go>'])
         self.end_token = self.word_to_ind['<eos>']
 
-        if self.mode == 'predict' and self.params["use_beam"]:
-            enc_output = tf.contrib.seq2seq.tile_batch(self.enc_output, multiplier=self.params["beam_length"])
-            seq_length = tf.contrib.seq2seq.tile_batch(self.text_length, multiplier=self.params["beam_length"])
-            enc_final_state = tf.contrib.seq2seq.tile_batch(self.enc_final_state[0], multiplier=self.params["beam_length"])
-            dynamic_batch_size = dynamic_batch_size * self.params["beam_length"]
+        if self.mode == 'predict' and self.params["use.beam"]:
+            enc_output = tf.contrib.seq2seq.tile_batch(self.enc_output, multiplier=self.params["beam.length"])
+            seq_length = tf.contrib.seq2seq.tile_batch(self.text_length, multiplier=self.params["beam.length"])
+            enc_final_state = tf.contrib.seq2seq.tile_batch(self.enc_final_state[0], multiplier=self.params["beam.length"])
+            dynamic_batch_size = dynamic_batch_size * self.params["beam.length"]
         else:
             enc_output = self.enc_output
             seq_length = self.text_length
@@ -111,7 +111,7 @@ class BasicSeq2Seq(ModelBase):
         dec_cell = self._create_decoder_cell(enc_output, seq_length)
         decoder_instance = self._create_decoder(self.summary_length, self.max_summary_length)
 
-        if not self.mode == "train" and self.params["use_beam"]:
+        if self.mode == "predict" and self.params["use.beam"]:
             decoder_instance = self._get_beam_search_decoder(decoder_instance)
 
         dec_param_list = [enc_output, seq_length, enc_final_state, dynamic_batch_size]
@@ -140,10 +140,10 @@ class BasicSeq2Seq(ModelBase):
         pad = self.word_to_ind["<pad>"]
 
         # batch summaries, texts, and the lengths of their sentences together"""
-        for batch_i in range(0, len(sorted_texts) //  self.params["batch_size"]):
-            start_i = batch_i *  self.params["batch_size"]
-            summaries_batch = np.array(sorted_summaries[start_i:start_i +  self.params["batch_size"]])
-            texts_batch = np.array(sorted_texts[start_i:start_i + self.params["batch_size"]])
+        for batch_i in range(0, len(sorted_texts) //  self.params["batch.size"]):
+            start_i = batch_i *  self.params["batch.size"]
+            summaries_batch = np.array(sorted_summaries[start_i:start_i +  self.params["batch.size"]])
+            texts_batch = np.array(sorted_texts[start_i:start_i + self.params["batch.size"]])
 
             # Need the lengths for the _lengths parameters
             pad_summaries_lengths = []
@@ -163,7 +163,7 @@ class BasicSeq2Seq(ModelBase):
         saver = tf.train.Saver(var_list)
         saver.save(sess, save_path, write_meta_graph=True)
 
-    def restore(self, sess, var_list=None, ckpt_path=None):
+    def restore(self, sess, ckpt_path=None, var_list=None):
         if hasattr(self, 'training_variables'):
             var_list = self.training_variables
         self.restorer = tf.train.Saver(var_list)
@@ -179,8 +179,8 @@ class BasicSeq2Seq(ModelBase):
               load_ckpt=None, save_path=None):
 
         # check for checkpoint
-        if from_scratch is False and os.path.isfile(load_ckpt):
-            self.restore(sess, load_ckpt)
+        if from_scratch is False and os.path.isfile("{}.meta".format(load_ckpt)):
+            self.restore(sess=sess, ckpt_path=load_ckpt)
 
         # add optimizer to graph
         train_op = self._build_train_op()
@@ -197,9 +197,9 @@ class BasicSeq2Seq(ModelBase):
         batch_loss_train = 0
         summary_update_loss_train = []  # Record the update losses for saving improvements in the model
 
-        update_check = (len(summaries) // self.params["batch_size"] // self.params["per_epoch"]) - 1
+        update_check = (len(summaries) // self.params["batch.size"] // self.params["per.epoch"]) - 1
 
-        for e in tqdm(range(self.params["per_epoch"])):
+        for e in tqdm(range(self.params["per.epoch"])):
 
             update_loss_train = 0
             batch_loss_train = 0
@@ -227,18 +227,18 @@ class BasicSeq2Seq(ModelBase):
                 end_time = time.time()
                 batch_time = end_time - start_time
 
-                if batch_i % self.params["display_step"] == 0 and batch_i > 0:
-                    output_tuple = (e, self.params["per_epoch"], batch_i, len(texts) //  self.params["batch_size"],
-                                    batch_loss_train / self.params["display_step"], batch_time * self.params["display_step"])
+                if batch_i % self.params["display.step"] == 0 and batch_i > 0:
+                    output_tuple = (e, self.params["per.epoch"], batch_i, len(texts) //  self.params["batch.size"],
+                                    batch_loss_train / self.params["display.step"], batch_time * self.params["display.step"])
                     output_tuple_data.append(output_tuple)
 
                     print('Train_Epoch:{:>3}/{}    Train_Batch:{:>4}/{}    Train_Loss:{:>6.3f}   Seconds:{:>4.2f}'
                           .format(e,
-                                  self.params["per_epoch"],
+                                  self.params["per.epoch"],
                                   batch_i,
-                                  len(texts) //  self.params["batch_size"],
-                                  batch_loss_train / self.params["display_step"],
-                                  batch_time * self.params["display_step"]))
+                                  len(texts) //  self.params["batch.size"],
+                                  batch_loss_train / self.params["display.step"],
+                                  batch_time * self.params["display.step"]))
                     batch_loss_train = 0
 
                 if batch_i % update_check == 0 and batch_i > 0:
@@ -248,13 +248,13 @@ class BasicSeq2Seq(ModelBase):
                     # if the update loss is at a new minimum, save the model
                     if update_loss_train <= min(summary_update_loss_train):
                         print('New Record!')
-                        self.params["stop_early"] = 0
+                        self.params["stop.early"] = 0
                         saver = tf.train.Saver()
                         saver.save(sess, self.checkpoint)
                     else:
                         print("No Improvement.")
-                        self.params["stop_early"] += 1
-                        if self.params["stop_early"] == self.params["stop_update"]:
+                        self.params["stop.early"] += 1
+                        if self.params["stop.early"] == self.params["stop.update"]:
                             break
                     update_loss_train = 0
 
@@ -271,7 +271,7 @@ class BasicSeq2Seq(ModelBase):
 
         texts, summaries = data_tuple
 
-        for e in tqdm(range(self.params["per_epoch"])):
+        for e in tqdm(range(self.params["per.epoch"])):
 
             output_tuple_data = []
             for batch_i, (summaries_batch, texts_batch, summaries_lengths, texts_lengths) in enumerate(
@@ -306,7 +306,7 @@ class BasicSeq2Seq(ModelBase):
                     actual_sent = ' '.join([self.ind_to_word[index] for index in input_sent if index != pad])
                     actual_title = ' '.join([self.ind_to_word[index] for index in target_sent if index != pad])
 
-                    if not self.params["use_beam"]:
+                    if not self.params["use.beam"]:
                         predicted_title = ' '.join([self.ind_to_word[index] for index in pred if
                                                     index != pad])  # beam search output in [batch_size, time, beam_width] shape.
                         print(actual_title); print(predicted_title)

@@ -17,44 +17,44 @@ class ModelBase(Configurable):
         Configurable.__init__(self, params, mode, output_dir)
         self.encoder_class = locate(self.params["encoder.class"])
         self.decoder_class = locate(self.params["decoder.class"])
-        self.checkpoint = self.params["checkpoint_dir"]
+        self.checkpoint = self.params["checkpoint.dir"]
 
         self.word_to_ind = None
-        if "word_to_ind" in self.params and self.params["word_to_ind"]:
-            file1 = get_join_dir(self.output_dir, self.params["word_to_ind"])
+        if "word.to.ind" in self.params and self.params["word.to.ind"]:
+            file1 = get_join_dir(self.output_dir, self.params["word.to.ind"])
             self.word_to_ind = Loading.load_pickle(file1)
 
         self.ind_to_word = None
-        if "ind_to_word" in self.params and self.params["ind_to_word"]:
-            file2 = get_join_dir(self.output_dir, self.params["ind_to_word"])
+        if "ind.to.word" in self.params and self.params["ind.to.word"]:
+            file2 = get_join_dir(self.output_dir, self.params["ind.to.word"])
             self.ind_to_word = Loading.load_pickle(file2)
 
         self.embed_matrix = None
-        file3 = get_join_dir(self.output_dir, self.params["embed_matrix"])
-        if "embed_matrix" in self.params and self.params["embed_matrix"]:
+        file3 = get_join_dir(self.output_dir, self.params["embed.matrix"])
+        if "embed.matrix" in self.params and self.params["embed.matrix"]:
             self.embed_matrix = Loading.load_pickle(file3)
 
         if any([x == None for x in [file1, file2, file3]]):
-            OSError("One of the following required files is missing: %s" %("word_to_ind, ind_to_word, embed_matrix"))
+            OSError("One of the following required files is missing: %s" %("word.to.ind, ind.to.word, embed.matrix"))
 
     def _clip_gradients(self, grads_and_vars):
         gradients, variables = zip(*grads_and_vars)
-        clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.params["clip_gradients"])
+        clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.params["clip.gradients"])
         return list(zip(clipped_gradients ,variables))
 
     def _create_optimizer(self ,name, global_step):
         """Creates the optimizer"""
-        opt_types = ["adam", "gradient_descent"]
-        learning_rate = self.params["learning_rate"]
+        opt_types = ["adam", "gradient.descent"]
+        learning_rate = self.params["learning.rate"]
         if name == "adam":
             optimizer = tf.train.AdamOptimizer
             rate = learning_rate
         elif name == "gradient_descent":
             optimizer = tf.train.GradientDescentOptimizer
             rate = tf.train.exponential_decay(learning_rate,
-                                              global_step * self.params["batch_size"],
+                                              global_step * self.params["batch.size"],
                                               100000,
-                                              self.params["learning_rate_decay"], staircase=True)
+                                              self.params["learning.rate.decay"], staircase=True)
         else:
             ValueError("The following training optimizers are currently supported: %s" %opt_types)
 
@@ -84,7 +84,7 @@ class ModelBase(Configurable):
         grads_and_vars = optimizer.compute_gradients(self.batch_loss)
         clipped_gradients = self._clip_gradients(grads_and_vars)
 
-        if name == "gradient_descent":
+        if name == "gradient.descent":
             train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
         elif name == "adam":
             train_op = optimizer.apply_gradients(clipped_gradients)

@@ -17,7 +17,7 @@ class BasicDecoder(Configurable):
     def __init__(self, params, mode, output_dir, vocab_size, summ_length, max_length, name="basic_decoder"):
         Configurable.__init__(self, params, mode, output_dir)
         self.vocab_size = vocab_size
-        self.initializer = check_string(self.params["initialize_dense"])
+        self.initializer = check_string(self.params["initialize.dense"])
         self.summ_length = summ_length
         self.max_length = max_length
 
@@ -56,7 +56,7 @@ class BasicDecoder(Configurable):
         self.decoder = decoder
 
     def _hidden_state(self, dec_cell):
-        reuse = get_boolean(self.params["pass_hidden_state"].lower())
+        reuse = get_boolean(self.params["pass.hidden.state"].lower())
         if reuse:
             dec_init_state = dec_cell.zero_state(dtype=tf.float32, batch_size=self.dynamic_batch_size).clone(
                 cell_state=self.enc_final_state)
@@ -77,14 +77,14 @@ class BasicDecoder(Configurable):
 
     def _create_decoder_cell(self):
         return tf.contrib.rnn.MultiRNNCell(
-            [self._make_cell(self.params["rnn_size"], self.params["keep_probability"]) for _ in
-             range(self.params["num_layers"])])
+            [self._make_cell(self.params["rnn.size"], self.params["keep.probability"]) for _ in
+             range(self.params["num.layers"])])
 
     #TODO: look up the right scale for the initializer
     def _build_decoder(self, dec_cell, dec_embed_input, dec_param_list):
         self._setup_parameters(dec_param_list)
         scope = tf.get_variable_scope()
-        scale = np.float(self.params["init_scale"])
+        scale = np.float(self.params["init.scale"])
         if self.initializer:
             scope.set_initializer(self.initializer(-scale, scale))
         else:
@@ -98,7 +98,7 @@ class BasicDecoder(Configurable):
 
         decoder_dict = self._create_decoder_object(dec_cell, dec_embed_input, dec_init_state, output_layer)
 
-        self.init_decoder = get_boolean(self.params["init_decoder"])
+        self.init_decoder = get_boolean(self.params["init.decoder"])
         if not self.init_decoder:
             self._setup_decoder(dec_init_state, decoder_dict["helper"], decoder_dict["decoder"])
 

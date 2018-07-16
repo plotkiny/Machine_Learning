@@ -17,17 +17,17 @@ def get_rnn_cell(residual_connections=False,
                  residual_dense=False,
                  **params):
 
-  encoder_type = _get_cell_class(params["cell_class"])
-  dropout_input_keep_prob = params["dropout_input_keep_prob"]
-  dropout_output_keep_prob = params["dropout_output_keep_prob"]
+  encoder_type = _get_cell_class(params["cell.class"])
+  dropout_input_keep_prob = params["dropout.input.keep.prob"]
+  dropout_output_keep_prob = params["dropout.output.keep.prob"]
 
-  init_scale = np.float(params["init_scale"])
+  init_scale = np.float(params["init.scale"])
   scope = tf.get_variable_scope()
   scope.set_initializer(tf.random_uniform_initializer(-init_scale, init_scale))
 
   cells = []
-  for _ in range(params["num_layers"]):
-    cell = encoder_type(params["rnn_size"], initializer=scope.initializer)
+  for _ in range(params["num.layers"]):
+    cell = encoder_type(params["rnn.size"], initializer=scope.initializer)
     if dropout_input_keep_prob < 1.0 or dropout_output_keep_prob < 1.0:
       cell = tf.contrib.rnn.DropoutWrapper(
           cell=cell,

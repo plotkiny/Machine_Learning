@@ -15,18 +15,17 @@ def _default_rnn_cell_params():
   """Creates default parameters used by multiple RNN encoders.
   """
   return {
-      "cell_class": "BasicLSTMCell",
-      "cell_params": {
-          "num_units": 128
+      "cell.class": "BasicLSTMCell",
+      "cell.params": {
+          "num.units": 128
       },
-      "dropout_input_keep_prob": 1.0,
-      "dropout_output_keep_prob": 1.0,
-      "num_layers": 1,
-      "residual_connections": False,
-      "residual_combiner": "add",
-      "residual_dense": False
+      "dropout.input.keep_prob": .88,
+      "dropout.output.keep.prob": .88,
+      "num.layers": 1,
+      "residual.connections": False,
+      "residual.combiner": "add",
+      "residual.dense": False
   }
-
 
 def _unpack_cell(cell):
   """Unpack the cells because the stack_bidirectional_dynamic_rnn
@@ -41,29 +40,28 @@ def toggle_dropout(params, mode):
   """
   cell_params = copy.deepcopy(params)
   if mode != "train":
-    cell_params["dropout_input_keep_prob"] = 1.0
-    cell_params["dropout_output_keep_prob"] = 1.0
+    cell_params["dropout.input.keep.prob"] = 1.0
+    cell_params["dropout.output.keep.prob"] = 1.0
   return cell_params
-
 
 
 class BidirectionalRNNEncoder(Encoder):
 
     def __init__(self, params, mode, output_dir, name="bidirectional_rnn_encoder"):
         super(BidirectionalRNNEncoder, self).__init__(params, mode, output_dir)
-        self.params["rnn_cell"] = toggle_dropout(self.params, self.mode)
+        self.params["rnn.cell"] = toggle_dropout(self.params, self.mode)
 
     @staticmethod
     def default_params():
         return {
-            "rnn_cell": _default_rnn_cell_params(),
-            "init_scale": 0.04,
+            "rnn.cell": _default_rnn_cell_params(),
+            "init.scale": 0.04,
         }
 
     def encode(self, inputs, sequence_length):
 
-        cell_fw = training_utils.get_rnn_cell(**self.params["rnn_cell"])
-        cell_bw = training_utils.get_rnn_cell(**self.params["rnn_cell"])
+        cell_fw = training_utils.get_rnn_cell(**self.params["rnn.cell"])
+        cell_bw = training_utils.get_rnn_cell(**self.params["rnn.cell"])
 
         #TODO: figure out why stack_bidirectional_dynamic_rnn doesn't work
         #enc_state is a tuple of forward and backward (output_state_fw, output_state_bw)

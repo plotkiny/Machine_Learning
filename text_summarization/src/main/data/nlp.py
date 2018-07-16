@@ -20,12 +20,12 @@ class PreProcessing(object):
     def __init__(self, configuration):
         self.code = configuration['code']
         self.language = configuration['language']
-        self.number_to_collect = configuration['sample_sentence']
-        self.sample_sentence = configuration['sample_sentence']
-        self.stop_words = configuration['stop_words']
-        self.expand_words = configuration['expand_words']
-        self.part_of_speech = configuration['part_of_speech']
-        self.remove_keys = configuration['remove_keys']
+        self.number_to_collect = configuration['sample.sentence']
+        self.sample_sentence = configuration['sample.sentence']
+        self.stop_words = configuration['stop.words']
+        self.expand_words = configuration['expand.words']
+        self.part_of_speech = configuration['part.of.speech']
+        self.remove_keys = configuration['remove.keys']
         self.dictionary = enchant.Dict("en_US")
 
     def tokenize_sentence(self, text):
@@ -133,6 +133,7 @@ class PreProcessing(object):
         text = re.sub(r'york', 'new_york', text) #replace
         text = re.sub(r'uk', 'united_kingdom', text) #replace
         text = re.sub(r'san', 'san_francisco', text) #replace
+        text = re.sub(r'you', 'u', text)  # replace
         #text = re.sub(r'u', 'you', text) #replace
         #text = re.sub(r'\'s', '', text) #replace
         #text = re.sub(r'(z|v|w|x|xi|xv|xvi)', '', text) #replace
@@ -161,10 +162,10 @@ class PostProcessing(object):
 
     def __init__(self, configuration):
         self.code = configuration['code']
-        self.threshold_count = configuration['threshold_count']
-        self.embed_dim = configuration['embed_dim']
-        self.max_length = configuration['max_length']
-        self.embedding_data = configuration['embedding_data']
+        self.threshold_count = configuration['threshold.count']
+        self.embed_dim = configuration['embed.dim']
+        self.max_length = configuration['max.length']
+        self.embedding_data = configuration['embedding.data']
 
     #distribution of words in the corpus
     def count_words(self,processed_li):

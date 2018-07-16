@@ -12,14 +12,14 @@ def main(configuration_file, output_directory):
     assert(os.path.isdir(output_directory) == True)
 
     configuration = Loading.read_json(configuration_file)['pipeline']
-    data = Loading.read_data(configuration['input_data'])
+    data = Loading.read_data(configuration['input.data'])[730000:738000]
 
     pre_processing = nlp.PreProcessing(configuration)
     post_processing = nlp.PostProcessing(configuration)
 
     processed_li = []
     for sample in data:
-        text_dictionary = {k:v for k,v in sample.items() if k not in configuration['remove_keys']}   #remove unneeded key:value items
+        text_dictionary = {k:v for k,v in sample.items() if k not in configuration['remove.keys']}   #remove unneeded key:value items
         for k,v in text_dictionary.items():
             text = pre_processing.cleaning_text(k,v)
             text_dictionary[k] = text
@@ -30,13 +30,13 @@ def main(configuration_file, output_directory):
     word_to_ind, ind_to_word, embed_matrix, words_without_embeddings = post_processing.prune_and_embed(counter_dictionary,
                                                                                                    embedding_list)
 
-    assert (embed_matrix.shape == (len(word_to_ind), configuration['embed_dim']))
+    assert (embed_matrix.shape == (len(word_to_ind), configuration['embed.dim']))
 
-    Loading.save_pickle(os.path.join(output_directory, configuration['word_frequency']), counter_dictionary)
+    Loading.save_pickle(os.path.join(output_directory, configuration['word.frequency']), counter_dictionary)
     Loading.save_pickle(os.path.join(output_directory, 'words_without_embedding'), words_without_embeddings)
-    Loading.save_pickle(os.path.join(output_directory, configuration['embed_matrix']), embed_matrix)
-    Loading.save_pickle(os.path.join(output_directory, configuration['word_to_ind']), word_to_ind)
-    Loading.save_pickle(os.path.join(output_directory, configuration['ind_to_word']), ind_to_word)
+    Loading.save_pickle(os.path.join(output_directory, configuration['embed.matrix']), embed_matrix)
+    Loading.save_pickle(os.path.join(output_directory, configuration['word.to.ind']), word_to_ind)
+    Loading.save_pickle(os.path.join(output_directory, configuration['ind.to.word']), ind_to_word)
 
     #converting all words to integers
     #calculating the distribution of lengths for each field
@@ -67,6 +67,6 @@ def main(configuration_file, output_directory):
         processed_data.append(new_sample)
 
     processed_data_with_padding = nlp.remove_reviews_and_set_padding(processed_data, count_dataframe, word_to_ind, threshold = .10)
-    Loading.save_pickle(os.path.join(output_directory, configuration['processed_data']), processed_data_with_padding)
+    Loading.save_pickle(os.path.join(output_directory, configuration['processed.data']), processed_data_with_padding)
     sys.stderr.write('The processed data was saved to {} \n '.format(output_directory))
 
